@@ -27,7 +27,7 @@ from ..extras.misc import has_tokenized_data
 from .aligner import align_dataset
 from .data_utils import merge_dataset, split_dataset, preprocess_sp_dataset
 from .parser import get_dataset_list
-from .preprocess import get_preprocess_and_print_func
+from .preprocess import get_preprocess_and_print_func, get_sequence_parallel_preprocess
 
 
 if TYPE_CHECKING:
@@ -223,82 +223,33 @@ def _get_preprocessed_dataset(
     return dataset
 
 
-def sequence_parallel_decorator(get_dataset):
-    @functools.wraps(get_dataset)
-    def sequence_parallel_processor(*args, **kwargs):
-        dataset_module = get_dataset(*args, **kwargs)
-        # get arguments
-        # NOTE: hard-coded indexing seems inevitable in such decorator style implementation?
-        model_args, data_args, training_args = args[1], args[2], args[3]
-        tokenizer = kwargs['tokenizer']        
-        if model_args.sequence_parallel_size > 1:
-            def pad_sequence(examples):
-                max_length = data_args.cutoff_len
-                input_pad_token_id = tokenizer.pad_token_id
-                assert data_args.ignore_pad_token_for_loss
-                label_pad_token_id = IGNORE_INDEX if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
-
-                for k, v in examples.items():
-                    if k.endswith('input_ids'):
-                        pad_token_id = input_pad_token_id
-                    elif k.endswith('labels'):
-                        pad_token_id = label_pad_token_id
-                        # shift labels here
-                        v = [seq[1:] for seq in v]
-                    elif k.endswith('attention_mask'):
-                        pad_token_id = 0
-                    elif k.endswith('position_ids'):
-                        pad_token_id = max_length - 1  # pad the max position id
-                    elif k == 'images' or k == 'videos':
-                        pad_token_id = -1
-                        continue  # TODO: haven't tested multi-modal yet
-                    else:
-                        raise NotImplementedError(f"Unexpected dataset key: {k}")
-                    examples[k] = [seq + [pad_token_id] * (max_length - len(seq)) for seq in v]
-
-                return examples
-
-            # sp for Sequence Parallel
-            def sp_split(examples):
-                for k, v in examples.items():
-                    chunks = list()
-                    for row in v:
-                        if row is None:
-                            chunks += [None] * model_args.sequence_parallel_size
-                        else:
-                            chunks += preprocess_sp_dataset(row, model_args.sequence_parallel_size, model_args.sequence_parallel_mode)
-                    examples[k] = chunks
-                return examples
-
-            # padding then split
-            for k in dataset_module:
-                dataset = dataset_module[k]
-                if data_args.shuffle_for_sequence_parallel:
-                    dataset = dataset.shuffle(seed=training_args.seed)
-                kwargs = dict(
-                    num_proc=data_args.preprocessing_num_workers,
-                    load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
-                    desc="Running padding split on dataset",
-                )
-                padded_dataset = dataset.map(pad_sequence, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs)
-                kwargs = dict(
-                    num_proc=data_args.preprocessing_num_workers,
-                    load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
-                    desc="Running sequence parallel split on dataset",
-                )
-                sp_dataset = padded_dataset.map(sp_split, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs)
-                dataset_module[k] = sp_dataset
-
-        else:
-            # no sequence parallelism
-            pass
-        
-        return dataset_module
-    
-    return sequence_parallel_processor
+def _sequence_parallel_processed(
+    dataset: Optional[Union["Dataset", "IterableDataset"]],
+    data_args: "DataArguments",
+    model_args: "ModelArugments",
+    training_args: "Seq2SeqTrainingArguments",
+    tokenizer: "PreTrainedTokenizer",
+    is_eval: bool = False,
+) -> Optional[Union["Dataset", "IterableDataset"]]:
+    if data_args.shuffle_for_sequence_parallel:
+        dataset = dataset.shuffle(seed=training_args.seed)
+    kwargs = dict(
+        num_proc=data_args.preprocessing_num_workers,
+        load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
+        desc="Running padding split on dataset",
+    )
+    pad_sequence_func = get_sequence_parallel_preprocess(data_args=data_args, model_args=model_args, stage="pad", tokenizer=tokenizer)
+    padded_dataset = dataset.map(pad_sequence_func, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs)
+    kwargs = dict(
+        num_proc=data_args.preprocessing_num_workers,
+        load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
+        desc="Running sequence parallel split on dataset",
+    )
+    sp_dataset_func = get_sequence_parallel_preprocess(data_args=data_args, model_args=model_args, stage="split", tokenizer=tokenizer)
+    sp_dataset = padded_dataset.map(sp_dataset_func, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs)
+    return sp_dataset
 
 
-@sequence_parallel_decorator
 def get_dataset(
     template: "Template",
     model_args: "ModelArguments",
@@ -345,6 +296,15 @@ def get_dataset(
         eval_dataset = _get_preprocessed_dataset(
             eval_dataset, data_args, training_args, stage, template, tokenizer, processor, is_eval=True
         )
+
+        if model_args.sequence_parallel_size > 1:
+            dataset = _sequence_parallel_processed(
+                dataset, data_args, model_args, training_args, tokenizer, is_eval=False
+            )
+            if eval_dataset is not None:
+                eval_dataset = _sequence_parallel_processed(
+                    eval_dataset, data_args, model_args, training_args, tokenizer, is_eval=True
+                )
 
         if data_args.val_size > 1e-6:
             dataset_dict = split_dataset(dataset, data_args, seed=training_args.seed)

@@ -23,6 +23,7 @@ from .processors.supervised import (
     preprocess_supervised_dataset,
     print_supervised_dataset_example,
 )
+from .processors.sequence_parallel import pad_sequence, sp_split
 from .processors.unsupervised import preprocess_unsupervised_dataset, print_unsupervised_dataset_example
 
 
@@ -109,3 +110,23 @@ def get_preprocess_and_print_func(
         print_function = partial(print_unsupervised_dataset_example, tokenizer=tokenizer)
 
     return preprocess_func, print_function
+
+
+def get_sequence_parallel_preprocess(
+    data_args: "DataArguments",
+    model_args: "ModelArugments",
+    stage: Literal["pad", "split"],
+    tokenizer: "PreTrainedTokenizer",
+) -> Tuple[Callable, Callable]:
+    if stage == "pad":
+        preprocess_func = partial(
+            pad_sequence,
+            data_args=data_args, 
+            tokenizer=tokenizer
+        )
+    elif stage == "split":
+        preprocess_func = partial(sp_split, model_args=model_args)
+    else:
+        raise NotImplementedError(f"Unexpected stage in sequence_parallel_preprocess: {stage}")
+
+    return preprocess_func
