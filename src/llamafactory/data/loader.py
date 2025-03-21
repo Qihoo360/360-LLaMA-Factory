@@ -294,6 +294,12 @@ def get_dataset(
     with training_args.main_process_first(desc="load dataset"):
         dataset = _get_merged_dataset(data_args.dataset, model_args, data_args, training_args, stage)
         eval_dataset = _get_merged_dataset(data_args.eval_dataset, model_args, data_args, training_args, stage)
+        if data_args.packing and data_args.packing_method == "random":
+            # shuffle origin dataset for random pack
+            if data_args.streaming:
+                dataset = dataset.shuffle(buffer_size=data_args.buffer_size, seed=training_args.seed)
+            else:
+                dataset = dataset.shuffle(seed=training_args.seed)
 
     with training_args.main_process_first(desc="pre-process dataset"):
         dataset = _get_preprocessed_dataset(
