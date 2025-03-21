@@ -1,15 +1,21 @@
 ![# 360-LLaMA-Factory](assets/360lf-logo-zhinao.png)
 
+**Update Mar. 21:**
+We have added and tested DeepSpeed Ulysses, as planned in [ToDos](#todos). Correctness and speed is tested in [this section](#deepspeed-ulysses-correctness--speed), with similar speed on 7B 20k as zigzag ring. Ulysses integration is based on [yunchang](https://github.com/feifeibear/long-context-attention) for now
+ but could be stripped with core functions adapted and source-acknowledged.
+
 **Using [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory) with Sequence Parallelism can be as easy as...**
 ```yaml
 # in your .yaml file
 sequence_parallel_size: 4
+sequence_parallel_mode: "zigzag-ring" / "ulysses"  # (by default is "zigzag-ring")
 ```
 or if you prefer launching multi-node training with DeepSpeed:
 ```shell
 deepspeed --hostfile=8nodes.host src/train.py \
     ...
     --sequence_parallel_size 4 \
+    --sequence_parallel_mode zigzag-ring / ulysses \  # (by default is zigzag-ring)
     ...
 ```
 
@@ -173,8 +179,20 @@ While it has been pointed out that (zigzag) ring attention exhibits [certain num
 
 We have been post-training SFT and DPO with SP without any notable issues on the resulting model's performance. We are confident 360-LLaMA-Factory *works and is correct*.
 
-![#sft](assets/sft.png)
-![#dpo](assets/dpo.png)
+<img src="./assets/sft.png" width="300" style="display: block; margin: 0 auto;"/>
+<img src="./assets/dpo.png" width="300" style="display: block; margin: 0 auto;"/>
+
+
+#### DeepSpeed Ulysses Correctness & Speed
+
+We compared SFT and DPO loss curves on the same data with and without Ulysses SP. The loss curves are almost identical (as is the case with zigzag ring attention), therefore verifying the correctness of our Ulysses integration.
+
+<img src="./assets/ds-sft.png" width="300" style="display: block; margin: 0 auto;"/>
+<img src="./assets/ds-dpo.png" width="300" style="display: block; margin: 0 auto;"/>
+
+We tested training speed of DeepSpeed Ulysses and zigzag ring on 7B models 20k sequence length,  and found they are almost identical with similar relative wall-time -- both around 15 minutes for 64 steps. We'll test more scenarios later.
+
+<img src="./assets/speed.png" width="300" style="display: block; margin: 0 auto;"/>
 
 
 ## Developing Notes
@@ -220,7 +238,7 @@ With zigzag ring attention, we also noticed numerical instability of the very fi
 - [ ] **Precompute**: Precompute the logits of the reference model to reduce memory during DPO
 - [ ] **logits.float()/contiguous()**: huge memory consumption on long sequences, could be optimized
 - [ ] **Overall SP compatability**: test & support unsloth, liger kernel, etc; add SP to train/pt, rm, kto
-- [ ] **Other SP modes**: DeepSpeed Ulysses and llama3-style SP
+- [√] **Other SP modes**: DeepSpeed Ulysses and llama3-style SP
 - [ ] **Data processing speed**: could be optimized
 
 ### Limitations
