@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import os
-import sys
-import functools
 from typing import TYPE_CHECKING, Dict, Literal, Optional, Sequence, Union
 
 import numpy as np
@@ -22,10 +20,10 @@ from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers.utils.versions import require_version
 
 from ..extras import logging
-from ..extras.constants import FILEEXT2TYPE, IGNORE_INDEX
+from ..extras.constants import FILEEXT2TYPE
 from ..extras.misc import has_tokenized_data
 from .aligner import align_dataset
-from .data_utils import merge_dataset, split_dataset, preprocess_sp_dataset
+from .data_utils import merge_dataset, split_dataset
 from .parser import get_dataset_list
 from .preprocess import get_preprocess_and_print_func, get_sequence_parallel_preprocess
 
@@ -223,10 +221,10 @@ def _get_preprocessed_dataset(
     return dataset
 
 
-def _sequence_parallel_processed(
+def _get_sequence_parallel_dataset(
     dataset: Optional[Union["Dataset", "IterableDataset"]],
     data_args: "DataArguments",
-    model_args: "ModelArugments",
+    model_args: "ModelArguments",
     training_args: "Seq2SeqTrainingArguments",
     tokenizer: "PreTrainedTokenizer",
     is_eval: bool = False,
@@ -238,15 +236,23 @@ def _sequence_parallel_processed(
         load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
         desc="Running padding split on dataset",
     )
-    pad_sequence_func = get_sequence_parallel_preprocess(data_args=data_args, model_args=model_args, stage="pad", tokenizer=tokenizer)
-    padded_dataset = dataset.map(pad_sequence_func, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs)
+    pad_sequence_func = get_sequence_parallel_preprocess(
+        data_args=data_args, model_args=model_args, stage="pad", tokenizer=tokenizer
+    )
+    padded_dataset = dataset.map(
+        pad_sequence_func, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs
+    )
     kwargs = dict(
         num_proc=data_args.preprocessing_num_workers,
         load_from_cache_file=(not data_args.overwrite_cache) or (training_args.local_process_index != 0),
         desc="Running sequence parallel split on dataset",
     )
-    sp_dataset_func = get_sequence_parallel_preprocess(data_args=data_args, model_args=model_args, stage="split", tokenizer=tokenizer)
-    sp_dataset = padded_dataset.map(sp_dataset_func, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs)
+    sp_dataset_func = get_sequence_parallel_preprocess(
+        data_args=data_args, model_args=model_args, stage="split", tokenizer=tokenizer
+    )
+    sp_dataset = padded_dataset.map(
+        sp_dataset_func, batched=True, batch_size=data_args.preprocessing_batch_size, **kwargs
+    )
     return sp_dataset
 
 
@@ -288,6 +294,12 @@ def get_dataset(
     with training_args.main_process_first(desc="load dataset"):
         dataset = _get_merged_dataset(data_args.dataset, model_args, data_args, training_args, stage)
         eval_dataset = _get_merged_dataset(data_args.eval_dataset, model_args, data_args, training_args, stage)
+        if data_args.packing and data_args.packing_method == "random":
+            # shuffle origin dataset for random pack
+            if data_args.streaming:
+                dataset = dataset.shuffle(buffer_size=data_args.buffer_size, seed=training_args.seed)
+            else:
+                dataset = dataset.shuffle(seed=training_args.seed)
 
     with training_args.main_process_first(desc="pre-process dataset"):
         dataset = _get_preprocessed_dataset(
@@ -298,11 +310,11 @@ def get_dataset(
         )
 
         if model_args.sequence_parallel_size > 1:
-            dataset = _sequence_parallel_processed(
+            dataset = _get_sequence_parallel_dataset(
                 dataset, data_args, model_args, training_args, tokenizer, is_eval=False
             )
             if eval_dataset is not None:
-                eval_dataset = _sequence_parallel_processed(
+                eval_dataset = _get_sequence_parallel_dataset(
                     eval_dataset, data_args, model_args, training_args, tokenizer, is_eval=True
                 )
 
@@ -328,9 +340,7 @@ def get_dataset(
             if training_args.should_save:
                 dataset_dict.save_to_disk(data_args.tokenized_path)
                 logger.info_rank0(f"Tokenized dataset saved at {data_args.tokenized_path}.")
-                logger.info_rank0(f"Please restart the training with `tokenized_path: {data_args.tokenized_path}`.")
-
-            sys.exit(0)
+                logger.info_rank0(f"Please launch the training with `tokenized_path: {data_args.tokenized_path}`.")
 
         dataset_module = {}
         if "train" in dataset_dict:

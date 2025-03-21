@@ -1,6 +1,7 @@
 from ...extras.constants import IGNORE_INDEX
 from ..data_utils import preprocess_sp_dataset
 
+
 def pad_sequence(examples, data_args, tokenizer):
     max_length = data_args.cutoff_len
     input_pad_token_id = tokenizer.pad_token_id
@@ -30,6 +31,7 @@ def pad_sequence(examples, data_args, tokenizer):
 
     return examples
 
+
 # sp for Sequence Parallel
 def sp_split(examples, model_args):
     for k, v in examples.items():
@@ -38,8 +40,8 @@ def sp_split(examples, model_args):
             if row is None:
                 chunks.extend([None] * model_args.sequence_parallel_size)
             else:
-                chunks.extend(preprocess_sp_dataset(
-                    row, model_args.sequence_parallel_size, model_args.sequence_parallel_mode
-                ))
+                chunks.extend(
+                    preprocess_sp_dataset(row, model_args.sequence_parallel_size, model_args.sequence_parallel_mode)
+                )
         examples[k] = chunks
     return examples

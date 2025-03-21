@@ -109,9 +109,19 @@ class DataArguments:
         default=False,
         metadata={"help": "Enable sequence packing without cross-attention."},
     )
+    packing_method: Literal["greedy", "random"] = field(
+        default="greedy",
+        metadata={"help": "Strategy for packing"},
+    )
+    drop_exceed_length_data: Optional[bool] = field(
+        default=False,
+        metadata={"help": "drop exceed cutoff length data instead of truncate"},
+    )
     shuffle_for_sequence_parallel: bool = field(
         default=True,
-        metadata={"help": "Shuffle dataset before sequence parallel preprocessing (should shuffle before pad & split)."},
+        metadata={
+            "help": "Shuffle dataset before sequence parallel preprocessing (should shuffle before pad & split)."
+        },
     )
     tool_format: Optional[str] = field(
         default=None,

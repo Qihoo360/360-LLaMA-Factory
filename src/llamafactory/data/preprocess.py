@@ -18,19 +18,19 @@ from typing import TYPE_CHECKING, Callable, Literal, Optional, Tuple
 from .processors.feedback import preprocess_feedback_dataset
 from .processors.pairwise import preprocess_pairwise_dataset, print_pairwise_dataset_example
 from .processors.pretrain import preprocess_pretrain_dataset
+from .processors.sequence_parallel import pad_sequence, sp_split
 from .processors.supervised import (
     preprocess_packed_supervised_dataset,
     preprocess_supervised_dataset,
     print_supervised_dataset_example,
 )
-from .processors.sequence_parallel import pad_sequence, sp_split
 from .processors.unsupervised import preprocess_unsupervised_dataset, print_unsupervised_dataset_example
 
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizer, ProcessorMixin
 
-    from ..hparams import DataArguments
+    from ..hparams import DataArguments, ModelArguments
     from .template import Template
 
 
@@ -114,16 +114,12 @@ def get_preprocess_and_print_func(
 
 def get_sequence_parallel_preprocess(
     data_args: "DataArguments",
-    model_args: "ModelArugments",
+    model_args: "ModelArguments",
     stage: Literal["pad", "split"],
     tokenizer: "PreTrainedTokenizer",
 ) -> Tuple[Callable, Callable]:
     if stage == "pad":
-        preprocess_func = partial(
-            pad_sequence,
-            data_args=data_args, 
-            tokenizer=tokenizer
-        )
+        preprocess_func = partial(pad_sequence, data_args=data_args, tokenizer=tokenizer)
     elif stage == "split":
         preprocess_func = partial(sp_split, model_args=model_args)
     else:
