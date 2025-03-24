@@ -611,6 +611,12 @@ _register_template(
     format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
 )
 
+register_template(
+    name="deepseek3",
+    format_user=StringFormatter(slots=["<｜User｜>{{content}}<｜Assistant｜>"]),
+    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
+)
+
 
 _register_template(
     name="deepseekcoder",
@@ -624,6 +630,14 @@ _register_template(
         "For politically sensitive questions, security and privacy issues, "
         "and other non-computer science questions, you will refuse to answer.\n"
     ),
+)
+
+_register_template(
+    name="DeepSeek_R1_Distill_Qwen",
+    format_user=StringFormatter(slots=["<｜begin▁of▁sentence｜><｜User｜>{{content}}<｜Assistant｜>"]),
+    format_observation=StringFormatter(slots=["<｜begin▁of▁sentence｜><｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>{{content}}<｜tool▁output▁end｜><｜tool▁outputs▁end｜>"]),
+    format_separator=EmptyFormatter(slots=["\n"]),
+    stop_words=["<｜end▁of▁sentence｜>"],
 )
 
 
