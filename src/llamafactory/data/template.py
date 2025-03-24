@@ -626,6 +626,20 @@ _register_template(
     ),
 )
 
+register_template(
+    name="deepseek3",
+    format_user=StringFormatter(slots=["<｜User｜>{{content}}<｜Assistant｜>"]),
+    format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
+)
+
+
+_register_template(
+    name="deepseek_r1_distill_qwen",
+    format_user=StringFormatter(slots=["<｜begin▁of▁sentence｜><｜User｜>{{content}}<｜Assistant｜>"]),
+    format_observation=StringFormatter(slots=["<｜begin▁of▁sentence｜><｜tool▁outputs▁begin｜><｜tool▁output▁begin｜>{{content}}<｜tool▁output▁end｜><｜tool▁outputs▁end｜>"]),
+    format_separator=EmptyFormatter(slots=["\n"]),
+    stop_words=["<｜end▁of▁sentence｜>"],
+)
 
 _register_template(
     name="default",
