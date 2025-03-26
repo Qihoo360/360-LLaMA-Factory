@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft Corporation and Jiarui Fang
 # SPDX-License-Identifier: Apache-2.0
-# modify from https://github.com/feifeibear/long-context-attention/blob/main/yunchang/comm/all_to_all.py
+# modified from https://github.com/feifeibear/long-context-attention/blob/main/yunchang/comm/all_to_all.py
 
 
 import torch

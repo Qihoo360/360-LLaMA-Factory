@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation and Jiarui Fang
 # SPDX-License-Identifier: Apache-2.0
 # DeepSpeed Team & Jiarui Fang
-# modify from https://github.com/feifeibear/long-context-attention/blob/main/yunchang/ulysses/attn_layer.py
+# modified from https://github.com/feifeibear/long-context-attention/blob/main/yunchang/ulysses/attn_layer.py
 
 import torch
 
