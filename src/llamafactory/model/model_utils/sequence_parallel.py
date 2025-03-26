@@ -7,8 +7,7 @@ import torch.distributed as dist
 import transformers
 import transformers.modeling_flash_attention_utils
 from ring_flash_attn import zigzag_ring_flash_attn_func
-from yunchang import UlyssesAttention
-from yunchang.kernels import AttnType
+from .ulysses import UlyssesAttention
 
 def new_flash_attn_forward(
     query_states,
@@ -29,7 +28,7 @@ def new_flash_attn_forward(
             query_states, key_states, value_states, dropout, deterministic=deterministic, causal=is_causal, group=group
         )
     elif mode == "ulysses":
-        dist_attn = UlyssesAttention(sequence_process_group=group, attn_type=AttnType.FA)
+        dist_attn = UlyssesAttention(sequence_process_group=group)
         attn_output = dist_attn(query_states, key_states, value_states, deterministic=deterministic, dropout_p=dropout, causal=is_causal)
     else:
         raise NotImplementedError("Other sequence parallel modes are to be implemented.")
