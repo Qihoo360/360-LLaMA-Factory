@@ -152,6 +152,21 @@ class CustomDPOTrainer(DPOTrainer):
         simpo_loss = -F.logsigmoid(self.beta * logits)
         return simpo_loss
 
+    def nca_pair(self,
+        policy_chosen_logps: torch.FloatTensor,
+        policy_rejected_logps: torch.FloatTensor,
+        reference_chosen_logps: torch.FloatTensor,
+        reference_rejected_logps: torch.FloatTensor,
+    ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+        chosen_rewards = (policy_chosen_logps - reference_chosen_logps) * self.beta
+        rejected_rewards = (policy_rejected_logps - reference_rejected_logps) * self.beta
+        losses = (
+            -F.logsigmoid(chosen_rewards)
+            - 0.5 * F.logsigmoid(-chosen_rewards)
+            - 0.5 * F.logsigmoid(-rejected_rewards)
+        )
+        return losses, chosen_rewards, rejected_rewards
+
     def compute_preference_loss(
         self,
         policy_chosen_logps: "torch.Tensor",
@@ -173,9 +188,14 @@ class CustomDPOTrainer(DPOTrainer):
             chosen_rewards = self.beta * policy_chosen_logps.to(self.accelerator.device).detach()
             rejected_rewards = self.beta * policy_rejected_logps.to(self.accelerator.device).detach()
         else:
-            losses, chosen_rewards, rejected_rewards = self.dpo_loss(
-                policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps
-            )
+            if self.loss_type == "nca_pair":
+                losses, chosen_rewards, rejected_rewards = self.nca_pair(
+                    policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps
+                )
+            else:
+                losses, chosen_rewards, rejected_rewards = self.dpo_loss(
+                    policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps
+                )
 
         return losses, chosen_rewards, rejected_rewards
 
