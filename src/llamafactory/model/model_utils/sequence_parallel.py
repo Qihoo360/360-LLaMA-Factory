@@ -31,7 +31,7 @@ def new_flash_attn_forward(
         )
     elif mode == "ulysses":
         dist_attn = UlyssesAttention(sequence_process_group=group, attn_fn=attn_fn)
-        attn_output = dist_attn(query_states, key_states, value_states, attention_mask, query_length=q_len * sequence_parallel_size, deterministic=deterministic, dropout_p=dropout, causal=is_causal)
+        attn_output = dist_attn(query_states, key_states, value_states, attention_mask, query_length=q_len * sequence_parallel_size, deterministic=deterministic, dropout_p=dropout, causal=is_causal) # reset query_length to the real q_len before sp, Special settings for ulysses
     else:
         raise NotImplementedError("Other sequence parallel modes are to be implemented.")
 
