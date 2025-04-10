@@ -131,9 +131,9 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
             # weighted reduce within sequence_parallel_group
             sp_group = model.sequence_parallel_group
-            dist.all_reduce(loss, op=dist.ReduceOp.SUM, group=sp_group)
+            loss = torch.distributed.nn.functional.all_reduce(loss, op=dist.ReduceOp.SUM, group=sp_group)
             label_num = (labels != loss_fct.ignore_index).sum()
-            dist.all_reduce(label_num, op=dist.ReduceOp.SUM, group=sp_group)
+            label_num = torch.distributed.nn.functional.all_reduce(label_num, op=dist.ReduceOp.SUM, group=sp_group)
             loss /= label_num
 
         # now is single-sequence loss

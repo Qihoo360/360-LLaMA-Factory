@@ -15,12 +15,14 @@ def new_flash_attn_forward(
     value_states,
     attention_mask,
     q_len,
+    sequence_parallel_size=1,
     dropout=0,
     deterministic=False,
     sliding_window=None,
     is_causal=True,
     group=None,
     mode="zigzag-ring",
+    attn_fn=None,
     **kwargs,
 ):
     if mode == "zigzag-ring":
@@ -28,8 +30,8 @@ def new_flash_attn_forward(
             query_states, key_states, value_states, dropout, deterministic=deterministic, causal=is_causal, group=group
         )
     elif mode == "ulysses":
-        dist_attn = UlyssesAttention(sequence_process_group=group)
-        attn_output = dist_attn(query_states, key_states, value_states, deterministic=deterministic, dropout_p=dropout, causal=is_causal)
+        dist_attn = UlyssesAttention(sequence_process_group=group, attn_fn=attn_fn)
+        attn_output = dist_attn(query_states, key_states, value_states, attention_mask, query_length=q_len * sequence_parallel_size, deterministic=deterministic, dropout_p=dropout, causal=is_causal)
     else:
         raise NotImplementedError("Other sequence parallel modes are to be implemented.")
 
@@ -51,12 +53,13 @@ def init_sp_group(sp_size):
     return sp_groups[sp_idx]
 
 
-def apply_sequence_parallel(model_args, full_determinism=False):
+def apply_sequence_parallel(model_args, full_determinism=False, neat_packing=False):
     if model_args.sequence_parallel_size == 1:
         return None  # no sequence parallelism
 
     # init sequence-parallel groups here
     group_this = init_sp_group(model_args.sequence_parallel_size)
+    original_attn = transformers.modeling_flash_attention_utils._flash_attention_forward
 
     try:
         # old_flash_attention_forward = transformers.modeling_flash_attention_utils._flash_attention_forward
@@ -64,7 +67,9 @@ def apply_sequence_parallel(model_args, full_determinism=False):
             new_flash_attention_forward = partial(new_flash_attn_forward, group=group_this, mode=model_args.sequence_parallel_mode, deterministic=full_determinism)
             # assert check_params(old_flash_attention_forward, new_flash_attention_forward)
         elif model_args.sequence_parallel_mode == "ulysses":
-            new_flash_attention_forward = partial(new_flash_attn_forward, group=group_this, mode=model_args.sequence_parallel_mode, deterministic=full_determinism)
+            if not neat_packing:
+                attention_mask = None
+            new_flash_attention_forward = partial(new_flash_attn_forward, group=group_this, mode=model_args.sequence_parallel_mode, deterministic=full_determinism, attn_fn=original_attn, sequence_parallel_size=model_args.sequence_parallel_size)
         else:
             raise NotImplementedError("Other sequence parallel modes are to be implemented.")
 

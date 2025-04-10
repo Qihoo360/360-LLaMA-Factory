@@ -37,7 +37,9 @@ def sp_split(examples, model_args):
     for k, v in examples.items():
         chunks = list()
         for row in v:
-            if row is None:
+            if k.endswith("attention_mask"):
+                chunks.extend([row] * model_args.sequence_parallel_size)
+            elif row is None:
                 chunks.extend([None] * model_args.sequence_parallel_size)
             else:
                 chunks.extend(

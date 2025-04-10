@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Dict, Literal, Optional, Tuple, Union
 
 import torch
 import torch.distributed as dist
+import torch.distributed.nn.functional
 import torch.nn.functional as F
 from torch.utils.data import SequentialSampler
 from transformers import Trainer
@@ -270,11 +271,11 @@ class CustomDPOTrainer(DPOTrainer):
         # NOTE: correct logits reduction if necessary. Now we only reduce logps
         sp_group = model.sequence_parallel_group
         if sp_group is not None:
-            dist.all_reduce(policy_chosen_logps, op=dist.ReduceOp.SUM, group=sp_group)
-            dist.all_reduce(policy_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
-            dist.all_reduce(reference_chosen_logps, op=dist.ReduceOp.SUM, group=sp_group)
-            dist.all_reduce(reference_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
-            dist.all_reduce(policy_chosen_length, op=dist.ReduceOp.SUM, group=sp_group)
+            policy_chosen_logps = torch.distributed.nn.functional.all_reduce(policy_chosen_logps, op=dist.ReduceOp.SUM, group=sp_group)
+            policy_rejected_logps = torch.distributed.nn.functional.all_reduce(policy_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
+            reference_chosen_logps = torch.distributed.nn.functional.all_reduce(reference_chosen_logps, op=dist.ReduceOp.SUM, group=sp_group)
+            reference_rejected_logps = torch.distributed.nn.functional.all_reduce(reference_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
+            policy_chosen_length = torch.distributed.nn.functional.all_reduce(policy_chosen_length, op=dist.ReduceOp.SUM, group=sp_group)
 
         losses, chosen_rewards, rejected_rewards = self.compute_preference_loss(
             policy_chosen_logps,

@@ -7,9 +7,9 @@ import torch
 
 from typing import Any, Optional
 from torch import Tensor
-from flash_attn import flash_attn_func
 import torch.distributed as dist
 from .seq_comm import SeqAllToAll4D
+import transformers.modeling_flash_attention_utils
 
 
 class UlyssesAttention(torch.nn.Module):
@@ -21,7 +21,7 @@ class UlyssesAttention(torch.nn.Module):
         scatter_idx (int): scatter_idx for all2all comm
         gather_idx (int): gather_idx for all2all comm
         use_sync (bool): whether to synchronize after all-to-all. This flag can save cuda memory but will slow down the speed.
-        attn_type (AttnType): attention type enum
+        attn_fn (callable): attention type
     """
 
     def __init__(
@@ -30,6 +30,7 @@ class UlyssesAttention(torch.nn.Module):
         scatter_idx: int = 2,
         gather_idx: int = 1,
         use_sync: bool = False,
+        attn_fn: Optional[callable] = None,
     ) -> None:
 
         super(UlyssesAttention, self).__init__()
@@ -37,15 +38,18 @@ class UlyssesAttention(torch.nn.Module):
         self.scatter_idx = scatter_idx
         self.gather_idx = gather_idx
         self.use_sync = use_sync
-        self.attn_fn = flash_attn_func
+        self.attn_fn = attn_fn
 
     def forward(
         self,
         query: Tensor,
         key: Tensor,
         value: Tensor,
+        attention_mask: torch.Tensor,
+        query_length: int,
         dropout_p=0.0,
         softmax_scale=None,
+        position_ids: Optional[torch.Tensor] = None,
         causal=False,
         window_size=(-1, -1),
         softcap=0.0,
@@ -82,14 +86,14 @@ class UlyssesAttention(torch.nn.Module):
             q,
             k,
             v,
-            dropout_p=dropout_p,
-            softmax_scale = softmax_scale,
-            causal=causal,
-            window_size=window_size,
+            attention_mask,
+            query_length=query_length,
+            is_causal=causal,
+            dropout=dropout_p,
+            position_ids=position_ids,
+            softmax_scale=softmax_scale,  
             softcap=softcap,
-            alibi_slopes=alibi_slopes,
             deterministic=deterministic,
-            return_attn_probs=return_attn_probs,
         )
 
         if isinstance(context_layer, tuple):
