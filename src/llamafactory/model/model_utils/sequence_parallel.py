@@ -53,7 +53,7 @@ def init_sp_group(sp_size):
     return sp_groups[sp_idx]
 
 
-def apply_sequence_parallel(model_args, full_determinism=False, neat_packing=False):
+def apply_sequence_parallel(model_args, full_determinism=False):
     if model_args.sequence_parallel_size == 1:
         return None  # no sequence parallelism
 
@@ -67,8 +67,6 @@ def apply_sequence_parallel(model_args, full_determinism=False, neat_packing=Fal
             new_flash_attention_forward = partial(new_flash_attn_forward, group=group_this, mode=model_args.sequence_parallel_mode, deterministic=full_determinism)
             # assert check_params(old_flash_attention_forward, new_flash_attention_forward)
         elif model_args.sequence_parallel_mode == "ulysses":
-            if not neat_packing:
-                attention_mask = None
             new_flash_attention_forward = partial(new_flash_attn_forward, group=group_this, mode=model_args.sequence_parallel_mode, deterministic=full_determinism, attn_fn=original_attn, sequence_parallel_size=model_args.sequence_parallel_size)
         else:
             raise NotImplementedError("Other sequence parallel modes are to be implemented.")
