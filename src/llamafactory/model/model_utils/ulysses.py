@@ -11,6 +11,33 @@ import torch.distributed as dist
 from .seq_comm import SeqAllToAll4D
 import transformers.modeling_flash_attention_utils
 
+def pad_heads(tensor, sp):
+    """
+    Pad the head_cnt dimension of tensor with zeros to make it divisible by sp
+    Args:
+        tensor: (bs, seq_len / sp, head_cnt, hidden_dim)
+        sp: sequence parallel size
+    Returns:
+        tensor_padded:  (bs, seq_len / sp, head_cnt, hidden_dim), head_cnt_padded % sp == 0
+    """
+    head_cnt = tensor.size(2)
+    remainder = head_cnt % sp
+    
+    if remainder != 0:
+        pad_size = sp - remainder
+        tensor_padded = torch.nn.functional.pad(
+            tensor,
+            pad=(0, 0, 0, pad_size, 0, 0, 0, 0),
+            mode='constant',
+            value=0.0
+        )
+        return tensor_padded
+    else:
+        return tensor
+
+def unpad_heads(padded, ori_head_cnt):
+    return padded[:, :, :ori_head_cnt, :]
+
 
 class UlyssesAttention(torch.nn.Module):
     """Initialization.
@@ -75,6 +102,13 @@ class UlyssesAttention(torch.nn.Module):
         # (bs, seq_len/N, head_cnt, head_size) -> (bs, seq_len, head_cnt/N, head_size)
 
         # scatter 2, gather 1
+        sp = dist.get_world_size(group=self.spg)
+        head_num = query.size(2)
+        if head_num % sp != 0:
+            query = pad_heads(query, sp)
+            key = pad_heads(key, sp)
+            value = pad_heads(value, sp)
+
         q = SeqAllToAll4D.apply(self.spg, query, self.scatter_idx, self.gather_idx, self.use_sync)
         k = SeqAllToAll4D.apply(self.spg, key, self.scatter_idx, self.gather_idx, self.use_sync)
         v = SeqAllToAll4D.apply(self.spg, value, self.scatter_idx, self.gather_idx, self.use_sync)
@@ -104,5 +138,7 @@ class UlyssesAttention(torch.nn.Module):
         output = SeqAllToAll4D.apply(
             self.spg, context_layer, self.gather_idx, self.scatter_idx, self.use_sync
         )
+        if head_num % sp != 0:
+            output = unpad_heads(output, head_num)
         # out e.g., [s/p::h]
         return output
