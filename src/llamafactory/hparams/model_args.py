@@ -235,7 +235,19 @@ class ModelArguments(QuantizationArguments, ProcessorArguments, ExportArguments,
             "help": "Number of GPUs to process one data sequence. Values greater than 1 means enabling sequence parallelism."
         },
     )
-    sequence_parallel_mode: Literal["zigzag-ring", "llama3", "ulysses"] = field(
+    sequence_parallel_ulysses_degree: int = field(
+        default=1,
+        metadata={
+            "help": "The degree of DeepSpeed-Ulysses, use when sequence_parallel_mode equals usp."
+        },
+    )
+    sequence_parallel_ring_degree: int = field(
+        default=1,
+        metadata={
+            "help": "The degree of Ring-Attention, use when sequence_parallel_mode equals usp."
+        },
+    )
+    sequence_parallel_mode: Literal["zigzag-ring", "llama3", "ulysses", "usp"] = field(
         default="zigzag-ring",
         metadata={"help": "Specific mode of sequence parallel implementation."},
     )

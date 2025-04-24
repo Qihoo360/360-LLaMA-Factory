@@ -93,7 +93,7 @@ def split_dataset(
 
 
 # modified from https://github.com/jzhang38/EasyContext/
-def preprocess_sp_dataset(seq_ids, world_size, sequence_parallel_mode):
+def preprocess_sp_dataset(seq_ids, world_size, sequence_parallel_mode, sequence_parallel_ring_degree=1, sequence_parallel_ulysses_degree=1):
     if sequence_parallel_mode == "zigzag-ring":
         step = len(seq_ids) // (2 * world_size)
         value_chunks = [seq_ids[s : s + step] for s in range(0, len(seq_ids), step)]
@@ -105,5 +105,21 @@ def preprocess_sp_dataset(seq_ids, world_size, sequence_parallel_mode):
         step = len(seq_ids) // world_size
         local_values = [seq_ids[s : s + step] for s in range(0, len(seq_ids), step)]
         return local_values
+    elif sequence_parallel_mode == "usp":
+        step1 = len(seq_ids) // (2 * sequence_parallel_ring_degree)
+        value_chunks = [seq_ids[s : s + step1] for s in range(0, len(seq_ids), step1)]
+        local_values = list()
+        for rank in range(sequence_parallel_ring_degree):
+            local_values.append(value_chunks[rank] + value_chunks[2 * sequence_parallel_ring_degree - rank - 1])
+        final_blocks = []
+        for lv in local_values:
+            step2 = len(lv) // sequence_parallel_ulysses_degree
+            ulysses_blocks = [lv[s : s + step2] for s in range(0, len(lv), step2)]
+            final_blocks.extend(ulysses_blocks)
+        return final_blocks
+    # elif sequence_parallel_mode == "usp":
+    #     step = len(seq_ids) // (sequence_parallel_ulysses_degree * sequence_parallel_ring_degree)
+    #     local_values = [seq_ids[s : s + step] for s in range(0, len(seq_ids), step)]
+    #     return local_values
     else:
         raise NotImplementedError("Other sequence parallel modes are to be implemented.")

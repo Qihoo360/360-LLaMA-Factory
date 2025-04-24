@@ -213,7 +213,7 @@ class CustomDPOTrainer(DPOTrainer):
 
         all_logits: "torch.Tensor" = model(**batch, return_dict=True, use_cache=False).logits.to(torch.float32)
         all_logps, valid_length = get_batch_logps(
-            logits=all_logits, labels=batch["labels"], shift_labels=model.sequence_parallel_group is None
+            logits=all_logits, labels=batch["labels"], shift_labels=(model.sequence_parallel_group is None and model.sp_ulysses_group is None)
         )  # shift labels if no sequence parallel
         if self.loss_type in ["ipo", "orpo", "simpo"]:
             all_logps = all_logps / valid_length
@@ -269,12 +269,29 @@ class CustomDPOTrainer(DPOTrainer):
 
         # NOTE: correct logits reduction if necessary. Now we only reduce logps
         sp_group = model.sequence_parallel_group
+        sp_ulysses_group = model.sp_ulysses_group
+        sp_ring_group = model.sp_ring_group
         if sp_group is not None:
             policy_chosen_logps = dist.nn.all_reduce(policy_chosen_logps, op=dist.ReduceOp.SUM, group=sp_group)
             policy_rejected_logps = dist.nn.all_reduce(policy_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
             reference_chosen_logps = dist.nn.all_reduce(reference_chosen_logps, op=dist.ReduceOp.SUM, group=sp_group)
             reference_rejected_logps = dist.nn.all_reduce(reference_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
             policy_chosen_length = dist.nn.all_reduce(policy_chosen_length, op=dist.ReduceOp.SUM, group=sp_group)
+        elif sp_ulysses_group is not None:
+            policy_chosen_logps = dist.nn.all_reduce(policy_chosen_logps, op=dist.ReduceOp.SUM, group=sp_ulysses_group)
+            policy_chosen_logps = dist.nn.all_reduce(policy_chosen_logps, op=dist.ReduceOp.SUM, group=sp_ring_group)
+
+            policy_rejected_logps = dist.nn.all_reduce(policy_rejected_logps, op=dist.ReduceOp.SUM, group=sp_ulysses_group)
+            policy_rejected_logps = dist.nn.all_reduce(policy_rejected_logps, op=dist.ReduceOp.SUM, group=sp_ring_group)
+
+            reference_chosen_logps = dist.nn.all_reduce(reference_chosen_logps, op=dist.ReduceOp.SUM, group=sp_ulysses_group)
+            reference_chosen_logps = dist.nn.all_reduce(reference_chosen_logps, op=dist.ReduceOp.SUM, group=sp_ring_group)
+
+            reference_rejected_logps = dist.nn.all_reduce(reference_rejected_logps, op=dist.ReduceOp.SUM, group=sp_ulysses_group)
+            reference_rejected_logps = dist.nn.all_reduce(reference_rejected_logps, op=dist.ReduceOp.SUM, group=sp_ring_group)
+
+            policy_chosen_length = dist.nn.all_reduce(policy_chosen_length, op=dist.ReduceOp.SUM, group=sp_ulysses_group)
+            policy_chosen_length = dist.nn.all_reduce(policy_chosen_length, op=dist.ReduceOp.SUM, group=sp_ring_group)
 
         losses, chosen_rewards, rejected_rewards = self.compute_preference_loss(
             policy_chosen_logps,
@@ -358,7 +375,8 @@ class CustomDPOTrainer(DPOTrainer):
 
     @override
     def _get_train_sampler(self):
-        if self.model.sequence_parallel_group is not None:
-            return SequentialSampler(self.train_dataset)
-        else:
-            return super()._get_train_sampler()
+        return SequentialSampler(self.train_dataset)
+        # if self.model.sequence_parallel_group is not None:
+        #     return SequentialSampler(self.train_dataset)
+        # else:
+        #     return super()._get_train_sampler()

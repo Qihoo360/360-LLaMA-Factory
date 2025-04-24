@@ -43,7 +43,7 @@ def sp_split(examples, model_args):
                 chunks.extend([None] * model_args.sequence_parallel_size)
             else:
                 chunks.extend(
-                    preprocess_sp_dataset(row, model_args.sequence_parallel_size, model_args.sequence_parallel_mode)
+                    preprocess_sp_dataset(row, model_args.sequence_parallel_size, model_args.sequence_parallel_mode, model_args.sequence_parallel_ring_degree, model_args.sequence_parallel_ulysses_degree)
                 )
         examples[k] = chunks
     return examples

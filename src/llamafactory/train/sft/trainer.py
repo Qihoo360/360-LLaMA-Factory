@@ -98,10 +98,11 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
     @override
     def _get_train_sampler(self):
-        if self.model.sequence_parallel_group is not None:
-            return SequentialSampler(self.train_dataset)
-        else:
-            return super()._get_train_sampler()
+        return SequentialSampler(self.train_dataset)
+        # if self.model.sequence_parallel_group is not None:
+        #     return SequentialSampler(self.train_dataset)
+        # else:
+        #     return super()._get_train_sampler()
 
     @override
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
@@ -109,7 +110,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         Fixes the loss value for transformers 4.46.0.
         https://github.com/huggingface/transformers/blob/v4.46.0/src/transformers/trainer.py#L3605
         """
-        if model.sequence_parallel_group is None:  # no sequence parallel, compute as it is
+        if model.sequence_parallel_group is None and model.sp_ulysses_group is None:  # no sequence parallel, compute as it is
             loss = super().compute_loss(model, inputs, return_outputs, **kwargs)
         else:
             # compute loss without shift labels, as we have already shifted labels in data processing when using sequence parallel
@@ -128,12 +129,20 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             # Enable model parallelism
             labels = labels.to(logits.device)
             loss = loss_fct(logits, labels)
+            label_num = (labels != loss_fct.ignore_index).sum()
 
             # weighted reduce within sequence_parallel_group
-            sp_group = model.sequence_parallel_group
-            loss = dist.nn.all_reduce(loss, op=dist.ReduceOp.SUM, group=sp_group)
-            label_num = (labels != loss_fct.ignore_index).sum()
-            label_num = dist.nn.all_reduce(label_num, op=dist.ReduceOp.SUM, group=sp_group)
+            if model.sequence_parallel_group is not None:
+                sp_group = model.sequence_parallel_group
+                loss = dist.nn.all_reduce(loss, op=dist.ReduceOp.SUM, group=sp_group)
+                label_num = dist.nn.all_reduce(label_num, op=dist.ReduceOp.SUM, group=sp_group)
+            else:
+                sp_ulysses_group = model.sp_ulysses_group
+                sp_ring_group = model.sp_ring_group
+                loss = dist.nn.all_reduce(loss, op=dist.ReduceOp.SUM, group=sp_ulysses_group)
+                loss = dist.nn.all_reduce(loss, op=dist.ReduceOp.SUM, group=sp_ring_group)
+                label_num = dist.nn.all_reduce(label_num, op=dist.ReduceOp.SUM, group=sp_ulysses_group)
+                label_num = dist.nn.all_reduce(label_num, op=dist.ReduceOp.SUM, group=sp_ring_group)
             loss /= label_num
 
         # now is single-sequence loss

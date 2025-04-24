@@ -143,7 +143,10 @@ def load_model(
         config.attention_dropout = 0.0
 
     apply_liger_kernel(config, model_args, is_trainable, require_logits=(finetuning_args.stage not in ["pt", "sft"]))
-    sequence_parallel_group = apply_sequence_parallel(model_args, full_determinism)  # monkey patching, similar to liger_kernel
+    if model_args.sequence_parallel_mode == "usp":
+        sp_ulysses_group, sp_ring_group = apply_sequence_parallel(model_args, full_determinism)
+    else:
+        sequence_parallel_group = apply_sequence_parallel(model_args, full_determinism)  # monkey patching, similar to liger_kernel
 
     model = None
     lazy_load = False
@@ -220,6 +223,12 @@ def load_model(
                     name, param.dtype, param.device, param.requires_grad
                 )
             )
-
-    model.sequence_parallel_group = sequence_parallel_group
+    if model_args.sequence_parallel_mode == "usp":
+        model.sp_ulysses_group = sp_ulysses_group
+        model.sp_ring_group = sp_ring_group
+        model.sequence_parallel_group = None
+    else:
+        model.sequence_parallel_group = sequence_parallel_group
+        model.sp_ulysses_group = None
+        model.sp_ring_group = None
     return model
