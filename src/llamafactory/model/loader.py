@@ -136,6 +136,7 @@ def load_model(
     patch_config(config, tokenizer, model_args, init_kwargs, is_trainable)
     if (
         model_args.sequence_parallel_size > 1
+        and model_args.sequence_parallel_mode != "ulysses"
         and hasattr(config, "attention_dropout")
         and config.attention_dropout != 0.0
     ):

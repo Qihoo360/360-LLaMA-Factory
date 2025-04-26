@@ -262,6 +262,23 @@ def get_train_args(args: Optional[Dict[str, Any]] = None) -> _TRAIN_CLS:
     if data_args.cutoff_len % model_args.sequence_parallel_size != 0:
         raise ValueError("cutoff_len must be a multiple of sequence_parallel_size.")
 
+    if model_args.sequence_parallel_mode == "usp":
+        if model_args.sequence_parallel_ulysses_degree == 1 and model_args.sequence_parallel_ring_degree == 1:
+            logger.warning_rank0(
+                f"The sequence_parallel_ulysses_degree and sequence_parallel_ring_degree are not set, sequence parallelism will not work."
+            )
+        if model_args.sequence_parallel_ulysses_degree == 1:
+            model_args.sequence_parallel_mode = "zigzag-ring"
+            logger.warning_rank0(
+                f"Since sequence_parallel_ulysses_degree is set to 1, it automatically switches to zigzag-ring mode."
+            )
+        elif model_args.sequence_parallel_ring_degree == 1:
+            model_args.sequence_parallel_mode = "ulysses"
+            logger.warning_rank0(
+                f"Since sequence_parallel_ring_degree is set to 1, it automatically switches to ulysses mode."
+            )
+        model_args.sequence_parallel_size = model_args.sequence_parallel_ring_degree * model_args.sequence_parallel_ulysses_degree
+
     if model_args.sequence_parallel_size > 1:
         if (data_args.cutoff_len // model_args.sequence_parallel_size) % 8 != 0:
             tmp_sp_len = data_args.cutoff_len // model_args.sequence_parallel_size
