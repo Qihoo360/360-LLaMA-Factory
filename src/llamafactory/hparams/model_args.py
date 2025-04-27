@@ -247,7 +247,7 @@ class ModelArguments(QuantizationArguments, ProcessorArguments, ExportArguments,
             "help": "The degree of Ring-Attention, use when sequence_parallel_mode equals usp."
         },
     )
-    sequence_parallel_mode: Literal["zigzag-ring", "llama3", "ulysses", "usp", "ulysses_test"] = field(
+    sequence_parallel_mode: Literal["zigzag-ring", "llama3", "ulysses", "usp"] = field(
         default="zigzag-ring",
         metadata={"help": "Specific mode of sequence parallel implementation."},
     )

@@ -101,7 +101,7 @@ def preprocess_sp_dataset(seq_ids, world_size, sequence_parallel_mode, sequence_
         for rank in range(world_size):
             local_values.append(value_chunks[rank] + value_chunks[2 * world_size - rank - 1])
         return local_values
-    elif sequence_parallel_mode == "ulysses" or sequence_parallel_mode == "ulysses_test":
+    elif sequence_parallel_mode == "ulysses":
         step = len(seq_ids) // world_size
         local_values = [seq_ids[s : s + step] for s in range(0, len(seq_ids), step)]
         return local_values
@@ -117,9 +117,5 @@ def preprocess_sp_dataset(seq_ids, world_size, sequence_parallel_mode, sequence_
             ulysses_blocks = [lv[s : s + step2] for s in range(0, len(lv), step2)]
             final_blocks.extend(ulysses_blocks)
         return final_blocks
-    # elif sequence_parallel_mode == "usp":
-    #     step = len(seq_ids) // (sequence_parallel_ulysses_degree * sequence_parallel_ring_degree)
-    #     local_values = [seq_ids[s : s + step] for s in range(0, len(seq_ids), step)]
-    #     return local_values
     else:
         raise NotImplementedError("Other sequence parallel modes are to be implemented.")
