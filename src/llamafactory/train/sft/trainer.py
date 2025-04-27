@@ -98,11 +98,10 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
     @override
     def _get_train_sampler(self):
-        return SequentialSampler(self.train_dataset)
-        # if self.model.sequence_parallel_group is not None:
-        #     return SequentialSampler(self.train_dataset)
-        # else:
-        #     return super()._get_train_sampler()
+        if self.model.sequence_parallel_group is not None:
+            return SequentialSampler(self.train_dataset)
+        else:
+            return super()._get_train_sampler()
 
     @override
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):

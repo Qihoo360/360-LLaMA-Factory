@@ -7,7 +7,6 @@ import torch.distributed as dist
 import transformers
 import transformers.modeling_flash_attention_utils
 from ring_flash_attn import zigzag_ring_flash_attn_func
-from yunchang import set_seq_parallel_pg, EXTRACT_FUNC_DICT
 from yunchang.kernels import AttnType
 from .usp import LongContextAttention
 from .ulysses import UlyssesAttention
