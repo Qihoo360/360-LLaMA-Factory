@@ -96,38 +96,38 @@ class StringFormatter(Formatter):
 
 
 @dataclass
-class FunctionFormatter(Formatter):
+class FunctionFormatter(StringFormatter):
     def __post_init__(self):
-        self.slots = get_tool_utils(self.tool_format).get_function_slots() + self.slots
+        super().__post_init__()
+        self.tool_utils = get_tool_utils(self.tool_format)
 
     @override
     def apply(self, **kwargs) -> SLOTS:
-        content = kwargs.pop("content")
-        functions: List[Tuple[str, str]] = []
+        content: str = kwargs.pop("content")
+        regex = re.compile(r"<think>(.*)</think>", re.DOTALL)
+        thought = re.search(regex, content)
+        if thought:
+            content = content.replace(thought.group(0), "")
+
+        functions: list[FunctionCall] = []
         try:
             tool_calls = json.loads(content)
             if not isinstance(tool_calls, list):  # parallel function call
                 tool_calls = [tool_calls]
 
             for tool_call in tool_calls:
-                functions.append((tool_call["name"], json.dumps(tool_call["arguments"], ensure_ascii=False)))
+                functions.append(
+                    FunctionCall(tool_call["name"], json.dumps(tool_call["arguments"], ensure_ascii=False))
+                )
 
         except json.JSONDecodeError:
-            raise RuntimeError(f"Invalid JSON format in function message: {str([content])}")  # flat string
+            raise RuntimeError(f"Invalid JSON format in function message: {str([content])}.")  # flat string
 
-        elements = []
-        for name, arguments in functions:
-            for slot in self.slots:
-                if isinstance(slot, str):
-                    slot = slot.replace("{{name}}", name).replace("{{arguments}}", arguments)
-                    elements.append(slot)
-                elif isinstance(slot, (dict, set)):
-                    elements.append(slot)
-                else:
-                    raise RuntimeError(f"Input must be string, set[str] or dict[str, str], got {type(slot)}")
+        function_str = self.tool_utils.function_formatter(functions)
+        if thought:
+            function_str = thought.group(0) + function_str
 
-        return elements
-
+        return super().apply(content=function_str)
 
 @dataclass
 class ToolFormatter(Formatter):
