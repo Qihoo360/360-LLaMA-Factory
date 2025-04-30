@@ -1,5 +1,8 @@
 ![# 360-LLaMA-Factory](assets/360lf-logo-zhinao.png)
 
+**Update Apr. 30:**
+We have supported Sequence Parallelism (SP) on Qwen3! (only the default `zigzag-ring` for now). See `360-example.sh`.
+
 **Update Mar. 21:**
 We have added and tested DeepSpeed Ulysses, as planned in [ToDos](#todos). Correctness and speed is tested in [this section](#deepspeed-ulysses-correctness--speed), with similar speed on 7B 28k as zigzag ring. Ulysses integration is based on [yunchang](https://github.com/feifeibear/long-context-attention) for now
  but could be stripped with core functions adapted and source-acknowledged.

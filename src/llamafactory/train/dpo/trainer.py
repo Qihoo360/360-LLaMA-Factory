@@ -124,11 +124,11 @@ class CustomDPOTrainer(DPOTrainer):
         return super().create_scheduler(num_training_steps, optimizer)
 
     @override
-    def get_batch_samples(self, epoch_iterator, num_batches):
+    def get_batch_samples(self, *args, **kwargs):
         r"""
         Replaces the method of KTO Trainer with the one of the standard Trainer.
         """
-        return Trainer.get_batch_samples(self, epoch_iterator, num_batches)
+        return Trainer.get_batch_samples(self, *args, **kwargs)
 
     def odds_ratio_loss(self, chosen_logps: "torch.Tensor", rejected_logps: "torch.Tensor") -> "torch.Tensor":
         r"""
@@ -319,7 +319,7 @@ class CustomDPOTrainer(DPOTrainer):
         return loss
 
     @override
-    def log(self, logs: Dict[str, float]) -> None:
+    def log(self, logs: Dict[str, float], *args, **kwargs) -> None:
         r"""
         Log `logs` on the various objects watching training, including stored metrics.
         """

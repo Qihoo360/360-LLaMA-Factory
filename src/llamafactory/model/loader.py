@@ -28,6 +28,7 @@ from .model_utils.sequence_parallel import apply_sequence_parallel
 from .model_utils.unsloth import load_unsloth_pretrained_model
 from .model_utils.valuehead import load_valuehead_params
 from .patcher import patch_config, patch_model, patch_processor, patch_tokenizer, patch_valuehead_model
+from ..extras.packages import is_transformers_version_greater_than
 
 
 if TYPE_CHECKING:
@@ -156,6 +157,8 @@ def load_model(
     if model is None and not lazy_load:
         init_kwargs["config"] = config
         init_kwargs["pretrained_model_name_or_path"] = model_args.model_name_or_path
+        if sequence_parallel_group is not None and is_transformers_version_greater_than("4.51.0"):
+            init_kwargs["attn_implementation"] = "sequence_parallel_attention"
 
         if model_args.mixture_of_depths == "load":
             model = load_mod_pretrained_model(**init_kwargs)

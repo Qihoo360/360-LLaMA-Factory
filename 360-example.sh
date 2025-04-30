@@ -4,9 +4,9 @@ export DISABLE_VERSION_CHECK=1  # if necessary
 deepspeed --hostfile=hostfile.2nodes src/train.py \
     --stage sft \
     --do_train \
-    --model_name_or_path xxx \
+    --model_name_or_path [your qwen3 model path] \
     --dataset sft_toy \
-    --template qwen \
+    --template qwen3 \
     --finetuning_type full \
     --output_dir output/sft-test \
     --cache_dir .cache \
@@ -39,9 +39,9 @@ deepspeed --hostfile=hostfile.2nodes src/train.py \
 deepspeed --hostfile=hostfile.1mac src/train.py \
     --stage dpo \
     --do_train \
-    --model_name_or_path xxx \
+    --model_name_or_path [your qwen3 model path] \
     --dataset dpo_toy \
-    --template qwen \
+    --template qwen3 \
     --finetuning_type full \
     --pref_beta 0.1 \
     --pref_loss sigmoid \
