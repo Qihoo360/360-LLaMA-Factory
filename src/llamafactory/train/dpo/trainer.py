@@ -199,6 +199,94 @@ class CustomDPOTrainer(DPOTrainer):
 
         return losses, chosen_rewards, rejected_rewards
 
+    def forward_input_view(self, inputs):
+        local_rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
+        world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+        
+        # 使用trainer的step信息作为batch_id
+        current_step = self.state.global_step if hasattr(self, 'state') else 0
+        
+        # 构建完整的调试信息字符串
+        debug_lines = []
+        debug_lines.append(f"=== STEP_{current_step:06d} | Rank {local_rank}/{world_size} ===")
+        
+        for k, v in inputs.items():
+            if k == 'input_ids':
+                debug_lines.append(f"  {k}: shape={v.shape if hasattr(v, 'shape') else len(v)}")
+                debug_lines.append(f"  {k}: {v}")
+                
+                # 添加图像token位置信息
+                if hasattr(v, 'flatten'):
+                    # 假设image_token_id，你可以从model.config获取
+                    #image_token_id = getattr(model.config, 'image_token_id', 151655)
+                    image_token_id = 151655
+                    image_positions = torch.where(v.flatten() == image_token_id)[0].tolist()
+                    debug_lines.append(f"  image_token_positions: {image_positions}")
+                    debug_lines.append(f"  image_token_count: {len(image_positions)}")
+                    
+            elif k == 'image_position_maps':
+                debug_lines.append(f"  {k}: shape={v.shape if hasattr(v, 'shape') else len(v)}")
+                debug_lines.append(f"  {k}: {v}")
+                
+                # 添加图像位置详细信息
+                if hasattr(v, 'flatten'):
+                    # 找到所有非-1的位置（即图像token位置）
+                    flat_v = v.flatten()
+                    non_negative_mask = flat_v >= 0
+                    non_negative_positions = torch.where(non_negative_mask)[0].tolist()
+                    non_negative_values = flat_v[non_negative_mask].tolist()
+                    
+                    debug_lines.append(f"  image_positions: {list(zip(non_negative_positions, non_negative_values))}")
+                    debug_lines.append(f"  image_position_count: {len(non_negative_positions)}")
+                    
+                    # 分析图像段
+                    if non_negative_positions:
+                        segments = []
+                        start = non_negative_positions[0]
+                        end = start
+                        
+                        for i in range(1, len(non_negative_positions)):
+                            if non_negative_positions[i] == non_negative_positions[i-1] + 1:
+                                end = non_negative_positions[i]
+                            else:
+                                segments.append((start, end))
+                                start = non_negative_positions[i]
+                                end = start
+                        segments.append((start, end))
+                        
+                        debug_lines.append(f"  image_segments: {segments}")
+                        debug_lines.append(f"  image_segment_count: {len(segments)}")
+                    
+            else:
+                debug_lines.append(f"  {k}: shape={v.shape if hasattr(v, 'shape') else len(v)}")
+        
+        # 添加一个汇总信息
+        if 'input_ids' in inputs and 'image_position_maps' in inputs:
+            input_ids = inputs['input_ids']
+            position_maps = inputs['image_position_maps']
+            
+            # 验证一致性
+            if hasattr(input_ids, 'flatten') and hasattr(position_maps, 'flatten'):
+                image_token_id = 151655
+                
+                # 从input_ids中找到的图像token位置
+                input_image_positions = torch.where(input_ids.flatten() == image_token_id)[0].tolist()
+                # 从position_maps中找到的图像token位置
+                map_image_positions = torch.where(position_maps.flatten() >= 0)[0].tolist()
+                
+                consistency_check = input_image_positions == map_image_positions
+                debug_lines.append(f"  consistency_check: {consistency_check}")
+                
+                if not consistency_check:
+                    debug_lines.append(f"  ❌ MISMATCH - input_positions: {input_image_positions}")
+                    debug_lines.append(f"  ❌ MISMATCH - map_positions: {map_image_positions}")
+        
+        debug_lines.append(f"=== END STEP_{current_step:06d} | Rank {local_rank} ===")
+        
+        # 一次性打印所有信息
+        print("\n".join(debug_lines))
+        
+
     @override
     def concatenated_forward(
         self, model: "PreTrainedModel", batch: Dict[str, "torch.Tensor"]
@@ -208,6 +296,7 @@ class CustomDPOTrainer(DPOTrainer):
 
         Otherwise the average log probabilities.
         """
+        #self.forward_input_view(batch)
         if self.finetuning_args.use_ref_model:
             batch = {k: v.detach().clone() for k, v in batch.items()}  # avoid error
 
@@ -276,7 +365,7 @@ class CustomDPOTrainer(DPOTrainer):
             reference_rejected_logps = dist.nn.all_reduce(reference_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
             policy_chosen_length = dist.nn.all_reduce(policy_chosen_length, op=dist.ReduceOp.SUM, group=sp_group)
 
-        losses, chosen_rewards, rejected_rewards = self.compute_preference_loss(
+        dpo_losses, chosen_rewards, rejected_rewards = self.compute_preference_loss(
             policy_chosen_logps,
             policy_rejected_logps,
             reference_chosen_logps,
@@ -285,8 +374,11 @@ class CustomDPOTrainer(DPOTrainer):
 
         policy_chosen_logps_avg = policy_chosen_logps / policy_chosen_length
         sft_loss = -policy_chosen_logps_avg
+
         if self.ftx_gamma > 1e-6:
-            losses += self.ftx_gamma * sft_loss
+            losses = dpo_losses + self.ftx_gamma * sft_loss
+        else:
+            losses = dpo_losses
 
         prefix = "eval_" if train_eval == "eval" else ""
         metrics[f"{prefix}rewards/chosen"] = chosen_rewards.mean().item()
@@ -297,6 +389,8 @@ class CustomDPOTrainer(DPOTrainer):
         metrics[f"{prefix}logps/rejected"] = policy_rejected_logps.mean().item()
         metrics[f"{prefix}logits/chosen"] = policy_chosen_logits.mean().item()
         metrics[f"{prefix}logits/rejected"] = policy_rejected_logits.mean().item()
+        metrics[f"{prefix}dpo/sft_loss"] = sft_loss.mean().item()
+        metrics[f"{prefix}dpo/dpo_loss"] = dpo_losses.mean().item()
         if self.loss_type == "orpo":
             metrics[f"{prefix}sft_loss"] = sft_loss.mean().item()
             metrics[f"{prefix}odds_ratio_loss"] = ((losses - sft_loss) / self.beta).mean().item()

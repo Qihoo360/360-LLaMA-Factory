@@ -87,6 +87,9 @@ def load_tokenizer(model_args: "ModelArguments") -> "TokenizerModule":
     except Exception as e:
         raise OSError("Failed to load tokenizer.") from e
 
+    if hasattr(config, 'image_token_id'):
+        tokenizer.image_token_id = config.image_token_id
+
     if model_args.new_special_tokens is not None:
         num_added_tokens = tokenizer.add_special_tokens(
             dict(additional_special_tokens=model_args.new_special_tokens),
@@ -144,7 +147,7 @@ def load_model(
         config.attention_dropout = 0.0
 
     apply_liger_kernel(config, model_args, is_trainable, require_logits=(finetuning_args.stage not in ["pt", "sft"]))
-    sequence_parallel_group = apply_sequence_parallel(model_args, full_determinism)  # monkey patching, similar to liger_kernel
+    sequence_parallel_group = apply_sequence_parallel(model_args, config, full_determinism)  # monkey patching, similar to liger_kernel
 
     model = None
     lazy_load = False
@@ -157,8 +160,9 @@ def load_model(
     if model is None and not lazy_load:
         init_kwargs["config"] = config
         init_kwargs["pretrained_model_name_or_path"] = model_args.model_name_or_path
-        if sequence_parallel_group is not None and is_transformers_version_greater_than("4.51.0"):
-            init_kwargs["attn_implementation"] = "sequence_parallel_attention"
+        # TODO: WHY?
+        #if sequence_parallel_group is not None and is_transformers_version_greater_than("4.51.0"):
+        #    init_kwargs["attn_implementation"] = "sequence_parallel_attention"
 
         if model_args.mixture_of_depths == "load":
             model = load_mod_pretrained_model(**init_kwargs)

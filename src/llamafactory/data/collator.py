@@ -154,6 +154,8 @@ class PairwiseDataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
                 if self.require_position_ids:
                     # if requires, would be padded to cutoff_len in preprocessing
                     target_feature["position_ids"] = feature[f"{key}_position_ids"]
+                if "image_position_maps" in feature:
+                    target_feature["image_position_maps"] = feature[f"image_position_maps"]
                 concatenated_features.append(target_feature)
 
         return super().__call__(concatenated_features)

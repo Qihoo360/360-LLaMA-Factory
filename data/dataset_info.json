@@ -624,5 +624,17 @@
       "prompt": "content"
     },
     "folder": "python"
+  },
+  "dpo-vl-demo": {                                                                                                                                        
+      "file_name": "dpo-vl-demo/train.jsonl",
+      "ranking": true,
+      "formatting": "sharegpt",
+      "columns": {
+          "messages": "conversations",
+          "chosen": "chosen",
+          "rejected": "rejected",
+          "images": "images",
+          "videos": "videos"
+      }
   }
 }

@@ -119,9 +119,9 @@ def get_sequence_parallel_preprocess(
     tokenizer: "PreTrainedTokenizer",
 ) -> Tuple[Callable, Callable]:
     if stage == "pad":
-        preprocess_func = partial(pad_sequence, data_args=data_args, tokenizer=tokenizer)
+        preprocess_func = partial(pad_sequence, data_args=data_args, tokenizer=tokenizer, model_args=model_args)
     elif stage == "split":
-        preprocess_func = partial(sp_split, model_args=model_args)
+        preprocess_func = partial(sp_split, model_args=model_args, tokenizer=tokenizer)
     else:
         raise NotImplementedError(f"Unexpected stage in sequence_parallel_preprocess: {stage}")
 

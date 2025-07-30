@@ -41,7 +41,7 @@ from .model_args import ModelArguments
 logger = logging.get_logger(__name__)
 
 
-check_dependencies()
+# check_dependencies()
 
 
 _TRAIN_ARGS = [ModelArguments, DataArguments, Seq2SeqTrainingArguments, FinetuningArguments, GeneratingArguments]
