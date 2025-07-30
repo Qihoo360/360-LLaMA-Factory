@@ -625,6 +625,21 @@
     },
     "folder": "python"
   },
+  "sft-vl-demo": {
+      "file_name": "sft-vl-demo/train.jsonl",
+      "formatting": "sharegpt",
+      "columns": {
+          "messages": "conversations",
+          "images": "images",
+          "videos": "videos"
+      },
+      "tags": {
+          "role_tag": "from",
+          "content_tag": "value",
+          "user_tag": "human",
+          "assistant_tag": "assistant"                                                                                                                                             
+      }
+  },
   "dpo-vl-demo": {                                                                                                                                        
       "file_name": "dpo-vl-demo/train.jsonl",
       "ranking": true,
