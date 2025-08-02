@@ -253,3 +253,34 @@ Results saved in the configured `save_dir`:
 - `detailed_results.json` - Individual results
 - `needle_haystack_performance.png` - Charts
 - `needle_haystack_heatmap.png` - Heatmap
+
+## Analysis and Comparison
+
+After running evaluations, use the comparison plotting script to analyze results:
+
+### Generate Comprehensive Comparison Report
+```bash
+python3 plot_niah_comparison.py --plot-type all --output-dir comparison_plots
+```
+
+### Compare Specific Experiments
+```bash
+python3 plot_niah_comparison.py --experiments experiment1 experiment2 --plot-type all
+```
+
+### Generate Individual Plot Types
+```bash
+# Overall performance comparison
+python3 plot_niah_comparison.py --plot-type overall
+
+# Context length analysis
+python3 plot_niah_comparison.py --plot-type context
+
+# Needle depth analysis
+python3 plot_niah_comparison.py --plot-type depth
+
+# Specific experiment heatmap
+python3 plot_niah_comparison.py --plot-type heatmap --experiment-for-heatmap experiment_name
+```
+
+See `evaluation/needle_haystack/COMPARISON_PLOTTING.md` for detailed documentation.
