@@ -121,8 +121,19 @@ class NeedleHaystackEvaluator:
             config = NeedleHaystackProperConfig(name="needle_haystack_proper", **config_kwargs)
             builder = NeedleHaystackProper()
             builder.config = config
-            # Force regeneration to avoid cache issues
-            builder.download_and_prepare(download_mode=self.eval_args.download_mode)
+            
+            # Clear cache if there's a mismatch error
+            try:
+                builder.download_and_prepare(download_mode=self.eval_args.download_mode)
+            except Exception as e:
+                if "NonMatchingSplitsSizeError" in str(e):
+                    print("Detected cache mismatch. Clearing cache and regenerating dataset...")
+                    # Force regeneration by using FORCE_REDOWNLOAD mode
+                    from datasets import DownloadMode
+                    builder.download_and_prepare(download_mode=DownloadMode.FORCE_REDOWNLOAD)
+                else:
+                    raise e
+            
             dataset = builder.as_dataset(split="test")
             dataset = {"test": dataset}
         else:

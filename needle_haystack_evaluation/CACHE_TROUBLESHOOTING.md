@@ -1,6 +1,31 @@
 # Cache Troubleshooting for Needle Haystack Evaluation
 
-## Problem: Configuration Changes Not Taking Effect
+## Problem 1: NonMatchingSplitsSizeError
+
+If you see this error:
+```
+datasets.exceptions.NonMatchingSplitsSizeError: [{'expected': SplitInfo(name='test', num_bytes=35200, num_examples=10...
+```
+
+This means the cached dataset metadata doesn't match the actual generated data.
+
+### Quick Fix:
+```bash
+# Run the comprehensive fix script
+./fix_dataset_cache.sh
+
+# Or manually clear all caches
+rm -rf ~/.cache/huggingface/datasets/*needle_haystack*
+rm -rf ~/.cache/huggingface/modules/*needle_haystack*
+```
+
+### Alternative: Force Redownload
+Add to your YAML config:
+```yaml
+download_mode: force_redownload
+```
+
+## Problem 2: Configuration Changes Not Taking Effect
 
 When you modify configuration parameters (like `needle_context_lengths`) in your YAML file, the evaluation might still use old cached values. This happens because HuggingFace datasets library caches generated datasets.
 

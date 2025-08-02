@@ -57,6 +57,14 @@ class NeedleHaystackProper(datasets.GeneratorBasedBuilder):
         # This forces regeneration when parameters change
         config_hash = f"{self.config.name}_{hash(str(self.config.context_lengths))}_{hash(str(self.config.document_depth_percents))}_{hash(self.config.needle)}_{hash(self.config.data_source)}"
         return config_hash
+    
+    @property
+    def cache_dir(self):
+        """Override cache directory to force unique cache per configuration."""
+        import hashlib
+        config_str = f"{self.config.context_lengths}_{self.config.document_depth_percents}_{self.config.needle}_{self.config.data_source}"
+        config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
+        return f"needle_haystack_proper_{config_hash}"
 
     def _info(self):
         features = datasets.Features(
