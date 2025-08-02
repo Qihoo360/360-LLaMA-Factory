@@ -54,10 +54,17 @@ save_dir: saves/tinyllama/needle_haystack_eval
 
 ### eval
 batch_size: 1
+
+### needle haystack configuration
+needle_context_lengths: [240, 480, 958, 1918]  # Context lengths in tokens
+needle_depth_percents: [0, 25, 50, 75, 100]    # Needle positions as percentages
+needle_text: "The secret key is 42 alpha bravo."  # Text to find in context
+needle_question: "What is the secret key?"      # Question about the needle
 ```
 
 ### Configuration Parameters
 
+#### Basic Parameters
 - **model_name_or_path**: HuggingFace model identifier or local path
 - **finetuning_type**: Must be `full` for evaluation (required for proper template encoding)
 - **task**: Must be `needle_haystack_proper` (uses the fixed dataset implementation)
@@ -66,15 +73,35 @@ batch_size: 1
 - **save_dir**: Output directory for results and visualizations
 - **batch_size**: Number of examples to process simultaneously (recommend 1 for long contexts)
 
+#### Needle Haystack Specific Parameters
+- **needle_context_lengths**: List of context lengths in tokens to test (default: [250, 500, 1000, 2000])
+- **needle_depth_percents**: List of needle position percentages in context (default: [0, 25, 50, 75, 100])
+- **needle_text**: Custom text to hide in the context (default: "The secret key is 42 alpha bravo.")
+- **needle_question**: Question to ask about the needle (default: "What is the secret key?")
+
 ## Dataset Details
 
-The evaluation uses a custom dataset with the following characteristics:
+The evaluation uses a custom dataset with configurable characteristics:
 
-- **Context Lengths**: [240, 480, 958, 1,918] tokens (accurately measured using tokenizer)
-- **Needle Positions**: [0%, 25%, 50%, 75%, 100%] depth in context
-- **Needle**: "The secret key is 42 alpha bravo."
-- **Question**: "What is the secret key?"
-- **Total Examples**: 20 (4 context lengths × 5 positions)
+- **Context Lengths**: Configurable list of token counts (default: [240, 480, 958, 1,918] tokens)
+- **Needle Positions**: Configurable depth percentages in context (default: [0%, 25%, 50%, 75%, 100%])
+- **Needle Text**: Configurable text to find (default: "The secret key is 42 alpha bravo.")
+- **Question**: Configurable retrieval question (default: "What is the secret key?")
+- **Total Examples**: Varies based on configuration (default: 20 examples = 4 lengths × 5 positions)
+
+### Example Custom Configuration
+
+You can customize the evaluation by modifying the YAML parameters:
+
+```yaml
+# Test shorter contexts with more positions
+needle_context_lengths: [100, 200, 400]
+needle_depth_percents: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+needle_text: "The magic number is 1337."
+needle_question: "What is the magic number?"
+```
+
+This would generate 33 examples (3 lengths × 11 positions) with a different needle.
 
 ## Output and Results
 

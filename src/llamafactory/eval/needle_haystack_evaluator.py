@@ -95,14 +95,40 @@ class NeedleHaystackEvaluator:
         task_parts = self.eval_args.task.split("_")
         eval_task = "_".join(task_parts[:2])
         
-        dataset = load_dataset(
-            path=os.path.join(self.eval_args.task_dir, eval_task),
-            name=eval_task,
-            cache_dir=self.model_args.cache_dir,
-            download_mode=self.eval_args.download_mode,
-            token=self.model_args.hf_hub_token,
-            trust_remote_code=True,
-        )
+        # Build config for needle haystack with custom parameters
+        config_kwargs = {}
+        if hasattr(self.eval_args, 'needle_context_lengths') and self.eval_args.needle_context_lengths:
+            config_kwargs['context_lengths'] = self.eval_args.needle_context_lengths
+        if hasattr(self.eval_args, 'needle_depth_percents') and self.eval_args.needle_depth_percents:
+            config_kwargs['document_depth_percents'] = self.eval_args.needle_depth_percents
+        if hasattr(self.eval_args, 'needle_text') and self.eval_args.needle_text:
+            config_kwargs['needle'] = self.eval_args.needle_text
+        if hasattr(self.eval_args, 'needle_question') and self.eval_args.needle_question:
+            config_kwargs['retrieval_question'] = self.eval_args.needle_question
+            
+        # Import the config class and load dataset
+        dataset_path = os.path.join(self.eval_args.task_dir, eval_task)
+        if config_kwargs and eval_task == "needle_haystack":
+            # For custom config, we need to use the dataset builder directly
+            import sys
+            sys.path.append(dataset_path)
+            from needle_haystack_proper import NeedleHaystackProper, NeedleHaystackProperConfig
+            
+            config = NeedleHaystackProperConfig(name="needle_haystack_proper", **config_kwargs)
+            builder = NeedleHaystackProper()
+            builder.config = config
+            builder.download_and_prepare()
+            dataset = builder.as_dataset(split="test")
+            dataset = {"test": dataset}
+        else:
+            dataset = load_dataset(
+                path=dataset_path,
+                name=eval_task,
+                cache_dir=self.model_args.cache_dir,
+                download_mode=self.eval_args.download_mode,
+                token=self.model_args.hf_hub_token,
+                trust_remote_code=True,
+            )
 
         results, scores = [], []
         
@@ -134,7 +160,7 @@ class NeedleHaystackEvaluator:
             
             results.append({
                 "example_id": i,
-                "context_length": example['context_length'],
+                "context_length": example['context_length_tokens'],
                 "depth_percent": example['depth_percent'],
                 "question": example['question'],
                 "needle": example['needle'],

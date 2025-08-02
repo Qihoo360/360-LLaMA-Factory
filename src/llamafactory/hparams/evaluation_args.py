@@ -14,7 +14,7 @@
 
 import os
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from datasets import DownloadMode
 
@@ -55,6 +55,23 @@ class EvaluationArguments:
     download_mode: DownloadMode = field(
         default=DownloadMode.REUSE_DATASET_IF_EXISTS,
         metadata={"help": "Download mode used for the evaluation datasets."},
+    )
+    # Needle haystack specific parameters
+    needle_context_lengths: Optional[List[int]] = field(
+        default=None,
+        metadata={"help": "Context lengths in tokens for needle haystack evaluation. Default: [250, 500, 1000, 2000]"},
+    )
+    needle_depth_percents: Optional[List[int]] = field(
+        default=None,
+        metadata={"help": "Needle depth percentages for needle haystack evaluation. Default: [0, 25, 50, 75, 100]"},
+    )
+    needle_text: Optional[str] = field(
+        default=None,
+        metadata={"help": "Custom needle text for needle haystack evaluation. Default: 'The secret key is 42 alpha bravo.'"},
+    )
+    needle_question: Optional[str] = field(
+        default=None,
+        metadata={"help": "Custom retrieval question for needle haystack evaluation. Default: 'What is the secret key?'"},
     )
 
     def __post_init__(self):
