@@ -1,0 +1,25 @@
+### model
+model_name_or_path: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+
+### method
+finetuning_type: full
+
+### dataset
+task: needle_haystack_proper
+task_dir: evaluation
+template: alpaca
+lang: en
+
+### output
+save_dir: saves/tinyllama/needle_haystack_eval
+
+### eval
+batch_size: 1
+
+### Expected Output:
+# - Context lengths: [250, 500, 1000, 2000] tokens (accurately measured)
+# - Needle positions: [0, 25, 50, 75, 100]% depth  
+# - Needle: "The secret key is 42 alpha bravo."
+# - Question: "What is the secret key?"
+# - Automatic visualization generation (charts + heatmap)
+# - Performance metrics by context length and needle position

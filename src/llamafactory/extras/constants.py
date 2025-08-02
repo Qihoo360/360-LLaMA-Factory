@@ -62,7 +62,7 @@ PEFT_METHODS = {"lora"}
 
 RUNNING_LOG = "running_log.txt"
 
-SUBJECTS = ["Average", "STEM", "Social Sciences", "Humanities", "Other"]
+SUBJECTS = ["Average", "STEM", "Social Sciences", "Humanities", "Other", "Long Context"]
 
 SUPPORTED_MODELS = OrderedDict()
 

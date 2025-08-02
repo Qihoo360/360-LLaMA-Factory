@@ -6,7 +6,12 @@ from functools import partial
 import torch.distributed as dist
 import transformers
 # import transformers.modeling_flash_attention_utils
-from ring_flash_attn import zigzag_ring_flash_attn_func
+try:
+    from ring_flash_attn import zigzag_ring_flash_attn_func
+    HAS_RING_FLASH_ATTN = True
+except ImportError:
+    zigzag_ring_flash_attn_func = None
+    HAS_RING_FLASH_ATTN = False
 from .ulysses import UlyssesAttention
 from ...extras.packages import is_transformers_version_greater_than
 
@@ -27,6 +32,8 @@ def new_flash_attn_forward(
     **kwargs,
 ):
     if mode == "zigzag-ring":
+        if not HAS_RING_FLASH_ATTN:
+            raise ImportError("ring_flash_attn is required for zigzag-ring mode but not installed")
         attn_output = zigzag_ring_flash_attn_func(
             query_states, key_states, value_states, dropout, deterministic=deterministic, causal=is_causal, group=group
         )

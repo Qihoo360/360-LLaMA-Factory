@@ -47,6 +47,7 @@ Before that, this codebase could be used directly in place of the original LLaMA
         - [Fresh-Start](#fresh-start)
         - [Incremental](#incremental)
     - [Quickstart](#quickstart)
+- [Needle in Haystack Evaluation](#needle-in-haystack-evaluation)
 - [Comparison with Existing SP Frameworks](#comparison-with-existing-sp-frameworks)
 - [Benchmarking 360-LLaMA-Factory](#benchmarking-360-llama-factory)
     - [SFT Max Length](#sft-max-length)
@@ -119,6 +120,46 @@ deepspeed --hostfile=8nodes.host src/train.py \
 ```
 
 You could also refer to [360-example.sh](360-example.sh) for example SFT and DPO scripts.
+
+
+## Needle in Haystack Evaluation
+
+360-LLaMA-Factory includes a fully integrated "Needle in Haystack" evaluation that tests a model's ability to retrieve specific information from long contexts. This evaluation is essential for validating long-context understanding capabilities.
+
+### Quick Start
+
+Run the evaluation with a simple command:
+
+```bash
+python3 run_needle_eval.py
+```
+
+Or use the configuration file directly:
+
+```bash
+python3 -c "
+import sys, os
+sys.path.insert(0, os.path.join(os.getcwd(), 'src'))
+sys.argv = ['eval', 'needle_haystack_evaluation/needle_haystack_config.yaml']
+from llamafactory.eval.evaluator import run_eval
+run_eval()
+"
+```
+
+### Features
+
+- **Accurate Token Counting**: Uses actual tokenizer for precise context length measurement
+- **Multiple Context Lengths**: Tests on [240, 480, 958, 1,918] tokens
+- **Varied Needle Positions**: Places the needle at [0%, 25%, 50%, 75%, 100%] depth in context
+- **Automatic Visualizations**: Generates performance charts and heatmaps
+- **Full LlamaFactory Integration**: Compatible with all model types, adapters, and quantization
+
+### Expected Performance
+
+- **TinyLlama-1.1B**: ~98.8% accuracy
+- **Results Include**: Overall scores, exact match rates, performance by context length and needle position
+
+For detailed documentation, see [needle_haystack_evaluation/README.md](needle_haystack_evaluation/README.md).
 
 
 ## Comparison with Existing SP Frameworks

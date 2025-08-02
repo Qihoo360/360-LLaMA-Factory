@@ -1,0 +1,10 @@
+{
+  "needle_haystack": {
+    "name": "Needle in Haystack Long Context Retrieval",
+    "category": "Long Context"
+  },
+  "needle_haystack_proper": {
+    "name": "Needle in Haystack with Accurate Token Counting",
+    "category": "Long Context"
+  }
+}

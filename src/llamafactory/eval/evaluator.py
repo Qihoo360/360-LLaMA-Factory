@@ -155,4 +155,16 @@ class Evaluator:
 
 
 def run_eval() -> None:
-    Evaluator().eval()
+    """Run evaluation with appropriate evaluator based on task type."""
+    from ..hparams import get_eval_args
+    
+    # Get eval args to check task type
+    _, _, eval_args, _ = get_eval_args()
+    
+    # Check if this is a needle haystack task
+    if eval_args.task.startswith("needle_haystack"):
+        from .needle_haystack_evaluator import run_needle_haystack_eval
+        run_needle_haystack_eval()
+    else:
+        # Use standard evaluator for other tasks
+        Evaluator().eval()
