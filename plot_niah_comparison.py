@@ -189,7 +189,7 @@ class NIAHComparisonPlotter:
         if experiments is None:
             experiments = list(self.results_data.keys())
         
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(14, 10))
         
         for exp_name in experiments:
             if exp_name in self.results_data:
@@ -202,16 +202,18 @@ class NIAHComparisonPlotter:
                 plt.plot(lengths, scores, marker='o', linewidth=2, markersize=8, 
                         label=exp_name.replace('_', ' '), alpha=0.8)
         
+        # Add performance threshold lines
+        plt.axhline(y=0.9, color='green', linestyle='--', alpha=0.5, label='90% threshold')
+        plt.axhline(y=0.8, color='orange', linestyle='--', alpha=0.5, label='80% threshold')
+        
         plt.title('Performance by Context Length', fontsize=16, fontweight='bold')
         plt.xlabel('Context Length (tokens)', fontsize=12)
         plt.ylabel('Average Score', fontsize=12)
         plt.grid(True, alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.ylim(0, 1.1)
         
-        # Add performance threshold lines
-        plt.axhline(y=0.9, color='green', linestyle='--', alpha=0.5, label='90% threshold')
-        plt.axhline(y=0.8, color='orange', linestyle='--', alpha=0.5, label='80% threshold')
+        # Position legend at bottom
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
         
         plt.tight_layout()
         
@@ -226,7 +228,7 @@ class NIAHComparisonPlotter:
         if experiments is None:
             experiments = list(self.results_data.keys())
         
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(14, 10))
         
         for exp_name in experiments:
             if exp_name in self.results_data:
@@ -239,17 +241,19 @@ class NIAHComparisonPlotter:
                 plt.plot(depths, scores, marker='s', linewidth=2, markersize=8, 
                         label=exp_name.replace('_', ' '), alpha=0.8)
         
-        plt.title('Performance by Needle Depth Position', fontsize=16, fontweight='bold')
-        plt.xlabel('Needle Depth (% through context)', fontsize=12)
-        plt.ylabel('Average Score', fontsize=12)
-        plt.grid(True, alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.ylim(0, 1.1)
-        
         # Highlight important positions
         plt.axvline(x=0, color='blue', linestyle=':', alpha=0.5, label='Beginning')
         plt.axvline(x=50, color='red', linestyle=':', alpha=0.5, label='Middle')
         plt.axvline(x=100, color='blue', linestyle=':', alpha=0.5, label='End')
+        
+        plt.title('Performance by Needle Depth Position', fontsize=16, fontweight='bold')
+        plt.xlabel('Needle Depth (% through context)', fontsize=12)
+        plt.ylabel('Average Score', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.ylim(0, 1.1)
+        
+        # Position legend at bottom
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2, frameon=False)
         
         plt.tight_layout()
         
@@ -279,7 +283,7 @@ class NIAHComparisonPlotter:
             length_idx = context_lengths.index(example['context_length'])
             matrix[depth_idx, length_idx] = example['score']
         
-        plt.figure(figsize=(10, 8))
+        plt.figure(figsize=(12, 10))
         sns.heatmap(matrix, 
                    xticklabels=[f'{l:,}' for l in context_lengths],
                    yticklabels=[f'{d}%' for d in depth_percents],
