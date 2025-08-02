@@ -47,6 +47,7 @@ needle_context_lengths: [100, 200]  # Very short contexts for quick demo
 needle_depth_percents: [0, 50, 100]  # Just 3 positions
 needle_text: "The demo key is QUICK123."  # Demo needle
 needle_question: "What is the demo key?"  # Demo question
+needle_haystack_data_source: "custom"  # Options: "custom", "paulgraham", "directory"
 EOF
 
 echo "Demo configuration created: quick_niah_demo.yaml"

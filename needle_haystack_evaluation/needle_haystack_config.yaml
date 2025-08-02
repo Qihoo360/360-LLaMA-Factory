@@ -21,6 +21,8 @@ needle_context_lengths: [240, 480, 958, 1918]  # Context lengths in tokens
 needle_depth_percents: [0, 25, 50, 75, 100]    # Needle positions as percentages
 needle_text: "The secret key is 42 alpha bravo."  # Text to find in context
 needle_question: "What is the secret key?"      # Question about the needle
+needle_haystack_data_source: "custom"          # Options: "custom", "paulgraham", "directory"
+# needle_haystack_data_dir: "/path/to/custom/text/files"  # Required when data_source="directory"
 
 ### Expected Output:
 # - Configurable context lengths and needle positions

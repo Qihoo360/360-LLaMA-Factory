@@ -73,6 +73,14 @@ class EvaluationArguments:
         default=None,
         metadata={"help": "Custom retrieval question for needle haystack evaluation. Default: 'What is the secret key?'"},
     )
+    needle_haystack_data_source: Optional[str] = field(
+        default=None,
+        metadata={"help": "Data source for needle haystack background text. Options: 'custom', 'paulgraham', 'directory'. Default: 'custom'"},
+    )
+    needle_haystack_data_dir: Optional[str] = field(
+        default=None,
+        metadata={"help": "Directory path for custom haystack text files (when data_source='directory'). Default: evaluation/needle_haystack/data/PaulGrahamEssays"},
+    )
 
     def __post_init__(self):
         if self.save_dir is not None and os.path.exists(self.save_dir):

@@ -78,6 +78,8 @@ needle_question: "What is the secret key?"      # Question about the needle
 - **needle_depth_percents**: List of needle position percentages in context (default: [0, 25, 50, 75, 100])
 - **needle_text**: Custom text to hide in the context (default: "The secret key is 42 alpha bravo.")
 - **needle_question**: Question to ask about the needle (default: "What is the secret key?")
+- **needle_haystack_data_source**: Background text source (options: "custom", "paulgraham", "directory", default: "custom")
+- **needle_haystack_data_dir**: Directory path for custom text files (required when data_source="directory")
 
 ## Dataset Details
 
@@ -89,19 +91,58 @@ The evaluation uses a custom dataset with configurable characteristics:
 - **Question**: Configurable retrieval question (default: "What is the secret key?")
 - **Total Examples**: Varies based on configuration (default: 20 examples = 4 lengths × 5 positions)
 
-### Example Custom Configuration
+### Background Text Data Sources
 
-You can customize the evaluation by modifying the YAML parameters:
+The evaluation supports three different background text sources:
 
+#### 1. Custom Technology Text (default)
 ```yaml
-# Test shorter contexts with more positions
-needle_context_lengths: [100, 200, 400]
-needle_depth_percents: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-needle_text: "The magic number is 1337."
-needle_question: "What is the magic number?"
+needle_haystack_data_source: "custom"
+```
+Uses built-in technology-focused background text covering AI, software development, cybersecurity, UX design, data science, and quantum computing.
+
+#### 2. Paul Graham Essays
+```yaml
+needle_haystack_data_source: "paulgraham"
+```
+Uses the famous Paul Graham essays collection (50+ essays) for more realistic, diverse background text. Essays cover startups, technology, philosophy, and life advice.
+
+#### 3. Custom Directory
+```yaml
+needle_haystack_data_source: "directory"
+needle_haystack_data_dir: "/path/to/your/text/files"
+```
+Load background text from any directory containing .txt files. Useful for domain-specific testing (legal documents, medical texts, etc.).
+
+### Example Configurations
+
+#### Standard Configuration
+```yaml
+needle_context_lengths: [240, 480, 958, 1918]
+needle_depth_percents: [0, 25, 50, 75, 100]
+needle_text: "The secret key is 42 alpha bravo."
+needle_question: "What is the secret key?"
+needle_haystack_data_source: "custom"
 ```
 
-This would generate 33 examples (3 lengths × 11 positions) with a different needle.
+#### Paul Graham Essays Configuration
+```yaml
+needle_context_lengths: [500, 1000, 2000]
+needle_depth_percents: [0, 25, 50, 75, 100]
+needle_text: "The startup key is YC2024."
+needle_question: "What is the startup key?"
+needle_haystack_data_source: "paulgraham"
+```
+
+#### Custom Domain Configuration
+```yaml
+needle_context_lengths: [300, 600, 1200]
+needle_depth_percents: [0, 33, 66, 100]
+needle_text: "The patient ID is MED789."
+needle_question: "What is the patient ID?"
+needle_haystack_data_source: "directory"
+needle_haystack_data_dir: "/data/medical_texts"
+```
 
 ## Output and Results
 

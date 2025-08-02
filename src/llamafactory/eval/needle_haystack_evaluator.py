@@ -105,6 +105,10 @@ class NeedleHaystackEvaluator:
             config_kwargs['needle'] = self.eval_args.needle_text
         if hasattr(self.eval_args, 'needle_question') and self.eval_args.needle_question:
             config_kwargs['retrieval_question'] = self.eval_args.needle_question
+        if hasattr(self.eval_args, 'needle_haystack_data_source') and self.eval_args.needle_haystack_data_source:
+            config_kwargs['data_source'] = self.eval_args.needle_haystack_data_source
+        if hasattr(self.eval_args, 'needle_haystack_data_dir') and self.eval_args.needle_haystack_data_dir:
+            config_kwargs['data_dir'] = self.eval_args.needle_haystack_data_dir
             
         # Import the config class and load dataset
         dataset_path = os.path.join(self.eval_args.task_dir, eval_task)

@@ -30,6 +30,8 @@ class NeedleHaystackProperConfig(datasets.BuilderConfig):
         document_depth_percents: Optional[List[int]] = None,
         needle: str = "The secret key is 42 alpha bravo.",
         retrieval_question: str = "What is the secret key?",
+        data_source: str = "custom",
+        data_dir: Optional[str] = None,
         **kwargs
     ):
         super().__init__(version=datasets.Version("1.0.0"), **kwargs)
@@ -37,6 +39,8 @@ class NeedleHaystackProperConfig(datasets.BuilderConfig):
         self.document_depth_percents = document_depth_percents or [0, 25, 50, 75, 100]
         self.needle = needle
         self.retrieval_question = retrieval_question
+        self.data_source = data_source
+        self.data_dir = data_dir
 
 
 class NeedleHaystackProper(datasets.GeneratorBasedBuilder):
@@ -127,8 +131,23 @@ class NeedleHaystackProper(datasets.GeneratorBasedBuilder):
             return len(text.split()) * 1.3  # Account for subword tokenization
 
     def _load_haystack_text(self) -> str:
-        """Load comprehensive background text."""
-        # Create rich, varied background text for realistic testing
+        """Load background text based on configured data source."""
+        config = self.config
+        data_source = getattr(config, 'data_source', 'custom')
+        
+        if data_source == 'paulgraham':
+            return self._load_paulgraham_essays()
+        elif data_source == 'directory':
+            data_dir = getattr(config, 'data_dir', None)
+            if not data_dir:
+                # Default to Paul Graham essays if no directory specified
+                data_dir = os.path.join(os.path.dirname(__file__), "data", "PaulGrahamEssays")
+            return self._load_text_from_directory(data_dir)
+        else:  # data_source == 'custom' or default
+            return self._load_custom_text()
+    
+    def _load_custom_text(self) -> str:
+        """Load custom technology-focused background text."""
         background_texts = [
             """In the rapidly evolving world of technology, artificial intelligence has become 
             a cornerstone of modern innovation. Machine learning algorithms are now being 
@@ -169,8 +188,42 @@ class NeedleHaystackProper(datasets.GeneratorBasedBuilder):
         ]
         
         # Repeat and combine to create a large corpus
-        full_text = " ".join(background_texts * 50)  # Create a large corpus
+        full_text = " ".join(background_texts * 50)
         return full_text
+    
+    def _load_paulgraham_essays(self) -> str:
+        """Load Paul Graham essays for background text."""
+        essays_dir = os.path.join(os.path.dirname(__file__), "data", "PaulGrahamEssays")
+        return self._load_text_from_directory(essays_dir)
+    
+    def _load_text_from_directory(self, directory: str) -> str:
+        """Load all text files from a directory."""
+        import glob
+        
+        if not os.path.exists(directory):
+            print(f"Warning: Directory {directory} does not exist. Falling back to custom text.")
+            return self._load_custom_text()
+        
+        context = ""
+        text_files = glob.glob(os.path.join(directory, "*.txt"))
+        
+        if not text_files:
+            print(f"Warning: No .txt files found in {directory}. Falling back to custom text.")
+            return self._load_custom_text()
+        
+        # Load all text files and concatenate
+        for file_path in text_files:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    context += f.read() + " "
+            except Exception as e:
+                print(f"Warning: Could not read {file_path}: {e}")
+        
+        if not context.strip():
+            print(f"Warning: No content loaded from {directory}. Falling back to custom text.")
+            return self._load_custom_text()
+        
+        return context
 
     def _generate_context_with_needle(
         self, 
