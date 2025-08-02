@@ -127,6 +127,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+llamafactory_env/
 
 # Spyder project settings
 .spyderproject
