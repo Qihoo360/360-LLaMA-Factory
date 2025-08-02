@@ -121,7 +121,8 @@ class NeedleHaystackEvaluator:
             config = NeedleHaystackProperConfig(name="needle_haystack_proper", **config_kwargs)
             builder = NeedleHaystackProper()
             builder.config = config
-            builder.download_and_prepare()
+            # Force regeneration to avoid cache issues
+            builder.download_and_prepare(download_mode=self.eval_args.download_mode)
             dataset = builder.as_dataset(split="test")
             dataset = {"test": dataset}
         else:

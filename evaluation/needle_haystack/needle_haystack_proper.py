@@ -50,6 +50,13 @@ class NeedleHaystackProper(datasets.GeneratorBasedBuilder):
             description="Properly implemented needle in haystack with accurate token counting",
         )
     ]
+    
+    def _get_cache_dir_name(self):
+        """Override cache directory name to include configuration parameters."""
+        # Include key configuration parameters in the cache directory name
+        # This forces regeneration when parameters change
+        config_hash = f"{self.config.name}_{hash(str(self.config.context_lengths))}_{hash(str(self.config.document_depth_percents))}_{hash(self.config.needle)}_{hash(self.config.data_source)}"
+        return config_hash
 
     def _info(self):
         features = datasets.Features(
