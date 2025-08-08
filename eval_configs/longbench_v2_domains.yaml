@@ -1,0 +1,30 @@
+### Model Configuration - LongBench v2 Specific Domains
+model_name_or_path: /exp/austin/F1_V4
+template: llama3
+# Use model's built-in RoPE scaling (8x factor, llama3 type)
+
+### Inference Configuration
+infer_dtype: bfloat16
+use_cache: true
+low_cpu_mem_usage: true
+
+### Evaluation Task
+task: longbench_v2
+task_dir: evaluation
+save_dir: results/longbench_v2_domains
+
+### LongBench v2 Parameters - Specific Domains
+longbench_max_examples: 100
+longbench_domains: ["single_document_qa", "multi_document_qa"]
+longbench_max_context_length: 64000
+longbench_save_context: true
+
+### Generation Configuration  
+longbench_temperature: 0.1
+longbench_top_p: 1.0
+longbench_top_k: 1
+longbench_max_new_tokens: 256
+
+### Performance Settings
+batch_size: 1
+seed: 2024

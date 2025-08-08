@@ -126,6 +126,51 @@ class EvaluationArguments:
         default=None,
         metadata={"help": "LongRoPE long factor list"},
     )
+    # LongBench v2 evaluation parameters
+    longbench_max_examples: int = field(
+        default=0,
+        metadata={"help": "Maximum number of LongBench examples to evaluate (0 = all)"},
+    )
+    longbench_domains: Optional[List[str]] = field(
+        default=None,
+        metadata={"help": "LongBench domains to evaluate (e.g., ['single_document_qa', 'multi_document_qa'])"},
+    )
+    longbench_difficulty: Optional[str] = field(
+        default=None,
+        metadata={"help": "LongBench difficulty level: 'easy' or 'hard'"},
+    )
+    longbench_max_context_length: int = field(
+        default=0,
+        metadata={"help": "Maximum context length in tokens (0 = no truncation)"},
+    )
+    longbench_max_length: Optional[int] = field(
+        default=None,
+        metadata={"help": "Maximum model length for LongBench evaluation"},
+    )
+    longbench_save_context: bool = field(
+        default=False,
+        metadata={"help": "Save context in results (first 1000 chars)"},
+    )
+    longbench_prompt_template: Optional[str] = field(
+        default=None,
+        metadata={"help": "Custom prompt template for LongBench evaluation"},
+    )
+    longbench_temperature: float = field(
+        default=0.1,
+        metadata={"help": "Temperature for LongBench generation"},
+    )
+    longbench_top_p: float = field(
+        default=1.0,
+        metadata={"help": "Top-p for LongBench generation"},
+    )
+    longbench_top_k: int = field(
+        default=1,
+        metadata={"help": "Top-k for LongBench generation"},
+    )
+    longbench_max_new_tokens: int = field(
+        default=128,
+        metadata={"help": "Maximum new tokens for LongBench generation"},
+    )
 
     def __post_init__(self):
         if self.save_dir is not None and os.path.exists(self.save_dir):
