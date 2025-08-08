@@ -39,8 +39,15 @@ class NeedleHaystackEvaluator:
         
         self.tokenizer = load_tokenizer(self.model_args)["tokenizer"]
         self.tokenizer.padding_side = "right"
+        
+        # Configure chat template from tokenizer if available, fallback to LlamaFactory template
+        self._configure_chat_template()
+        
         self.template = get_template_and_fix_tokenizer(self.tokenizer, self.data_args)
         self.model = load_model(self.tokenizer, self.model_args, finetuning_args)
+        
+        # Load and configure generation config from model
+        self._configure_generation_config()
 
     def _apply_rope_config(self) -> None:
         """Apply RoPE configuration from eval_args to model_args."""
@@ -75,6 +82,78 @@ class NeedleHaystackEvaluator:
                 if self.eval_args.longrope_long_factor:
                     self.model_args.rope_config['long_factor'] = self.eval_args.longrope_long_factor
 
+    def _configure_chat_template(self) -> None:
+        """Configure chat template from tokenizer config if available."""
+        try:
+            # Check if tokenizer already has a chat template
+            if hasattr(self.tokenizer, 'chat_template') and self.tokenizer.chat_template:
+                print(f"✓ Using tokenizer's built-in chat template")
+                return
+                
+            # Try to load chat template from tokenizer config
+            tokenizer_config_path = os.path.join(self.model_args.model_name_or_path, "tokenizer_config.json")
+            if os.path.exists(tokenizer_config_path):
+                import json
+                with open(tokenizer_config_path, 'r') as f:
+                    tokenizer_config = json.load(f)
+                
+                if 'chat_template' in tokenizer_config:
+                    self.tokenizer.chat_template = tokenizer_config['chat_template']
+                    print(f"✓ Loaded chat template from tokenizer_config.json")
+                    return
+                    
+        except Exception as e:
+            print(f"⚠ Could not load chat template from tokenizer config: {e}")
+            
+        print(f"ℹ Using LlamaFactory template system (template: {self.data_args.template})")
+
+    def _configure_generation_config(self) -> None:
+        """Load and configure generation config from model."""
+        try:
+            # Get the model's default generation config
+            if hasattr(self.model, 'generation_config') and self.model.generation_config:
+                self.base_generation_config = self.model.generation_config
+                print(f"✓ Loaded generation config from model")
+                
+                # Print some key default settings
+                if hasattr(self.base_generation_config, 'max_length'):
+                    print(f"  - Default max_length: {self.base_generation_config.max_length}")
+                if hasattr(self.base_generation_config, 'do_sample'):
+                    print(f"  - Default do_sample: {self.base_generation_config.do_sample}")
+                if hasattr(self.base_generation_config, 'temperature'):
+                    print(f"  - Default temperature: {self.base_generation_config.temperature}")
+            else:
+                self.base_generation_config = None
+                print(f"ℹ No generation config found in model, using manual configuration")
+                
+        except Exception as e:
+            print(f"⚠ Could not load generation config: {e}")
+            self.base_generation_config = None
+
+    def _encode_messages(self, messages: List[Dict[str, str]]) -> List[int]:
+        """Encode messages using tokenizer chat template if available, otherwise LlamaFactory template."""
+        try:
+            # Try tokenizer's chat template first
+            if hasattr(self.tokenizer, 'apply_chat_template') and self.tokenizer.chat_template:
+                # Remove empty assistant message for prompt-only encoding
+                prompt_messages = [msg for msg in messages if msg["content"].strip()]
+                
+                encoded = self.tokenizer.apply_chat_template(
+                    prompt_messages,
+                    tokenize=True,
+                    add_generation_prompt=True,
+                    return_tensors=None
+                )
+                return encoded
+        except Exception as e:
+            print(f"⚠ Chat template encoding failed, falling back to LlamaFactory template: {e}")
+        
+        # Fallback to LlamaFactory template
+        input_ids, _ = self.template.encode_oneturn(
+            tokenizer=self.tokenizer, messages=messages
+        )
+        return input_ids
+
     @torch.inference_mode()
     def generate_response(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> str:
         """Generate model response for given input."""
@@ -84,7 +163,7 @@ class NeedleHaystackEvaluator:
             if attention_mask.dim() == 1:
                 attention_mask = attention_mask.unsqueeze(0)
             
-            # Use generation config from eval_args
+            # Start with base generation config if available, then override with eval_args
             generation_kwargs = {
                 "input_ids": input_ids,
                 "attention_mask": attention_mask,
@@ -96,6 +175,22 @@ class NeedleHaystackEvaluator:
                 "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
                 "use_cache": True,
             }
+            
+            # Merge with model's generation config if available
+            if self.base_generation_config:
+                # Start with model defaults
+                base_kwargs = {}
+                if hasattr(self.base_generation_config, 'eos_token_id') and self.base_generation_config.eos_token_id:
+                    base_kwargs['eos_token_id'] = self.base_generation_config.eos_token_id
+                if hasattr(self.base_generation_config, 'bos_token_id') and self.base_generation_config.bos_token_id:
+                    base_kwargs['bos_token_id'] = self.base_generation_config.bos_token_id
+                if hasattr(self.base_generation_config, 'repetition_penalty') and self.base_generation_config.repetition_penalty:
+                    base_kwargs['repetition_penalty'] = self.base_generation_config.repetition_penalty
+                
+                # Only use model defaults if eval_args don't override
+                for key, value in base_kwargs.items():
+                    if key not in generation_kwargs:
+                        generation_kwargs[key] = value
             
             outputs = self.model.generate(**generation_kwargs)
             
@@ -204,9 +299,8 @@ class NeedleHaystackEvaluator:
                 }
             ]
             
-            input_ids, _ = self.template.encode_oneturn(
-                tokenizer=self.tokenizer, messages=messages
-            )
+            # Try to use tokenizer's chat template if available, otherwise use LlamaFactory template
+            input_ids = self._encode_messages(messages)
             input_tensor = torch.tensor([input_ids], device=self.model.device)
             attention_mask = torch.ones_like(input_tensor)
             
