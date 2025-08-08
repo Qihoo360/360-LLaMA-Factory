@@ -1,11 +1,10 @@
-### Model Configuration - Use Local Model (Single GPU Mode)
+### Model Configuration - Single GPU Evaluation
 model_name_or_path: /exp/austin/F1_V4
 template: llama3
-# Model already has rope_scaling configured, no need to override
+# Use model's built-in RoPE scaling (8x factor, llama3 type)
 
-### Single GPU Configuration
-# For multi-GPU distributed, use needle_haystack_8gpu_distributed.yaml with torchrun
-# DO NOT set sequence_parallel_size for single GPU evaluation
+### Single GPU Configuration - NO DISTRIBUTED
+# DO NOT SET sequence_parallel_size for single GPU
 flash_attn: auto
 
 ### Inference Configuration
@@ -16,11 +15,11 @@ low_cpu_mem_usage: true
 ### Evaluation Task
 task: needle_haystack
 task_dir: evaluation
-save_dir: results/needle_haystack_h100_8gpu
+save_dir: results/needle_haystack_single_gpu
 
 ### Needle Haystack Parameters
-needle_context_lengths: [1000, 2000, 4000, 8000, 16000, 32000]
-needle_depth_percents: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+needle_context_lengths: [1000, 2000, 4000, 8000, 16000, 32000, 64000]
+needle_depth_percents: [0, 10, 25, 50, 75, 90, 100]
 needle_text: "The secret key is 42 alpha bravo."
 needle_question: "What is the secret key?"
 needle_haystack_data_source: paulgraham
