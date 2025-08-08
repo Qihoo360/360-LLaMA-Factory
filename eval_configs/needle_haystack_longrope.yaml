@@ -1,5 +1,6 @@
 ### Model Configuration
 model_name_or_path: microsoft/Phi-3.5-mini-instruct
+template: phi
 rope_scaling_type: longrope
 rope_scaling_factor: 8.0
 longrope_short_factor: [1.0, 1.0, 1.0, 1.0, 1.2, 1.2, 1.4, 1.4]
