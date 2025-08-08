@@ -1,0 +1,35 @@
+### Local Model Configuration - Use Model's Built-in RoPE
+model_name_or_path: /exp/austin/F1_V4
+template: llama3
+# No RoPE override - use model's existing rope_scaling config
+
+### Single GPU Configuration  
+flash_attn: auto
+
+### Inference Configuration
+infer_dtype: bfloat16
+use_cache: true
+low_cpu_mem_usage: true
+
+### Evaluation Task
+task: needle_haystack
+task_dir: evaluation
+save_dir: results/needle_haystack_model_rope
+
+### Needle Haystack Parameters - Leveraging 131K max context
+needle_context_lengths: [2000, 8000, 16000, 32000, 64000]
+needle_depth_percents: [0, 20, 40, 60, 80, 100]
+needle_text: "The secret authentication code is GAMMA-DELTA-7529."
+needle_question: "What is the secret authentication code?"
+needle_haystack_data_source: paulgraham
+needle_save_inputs_outputs: true
+
+### Generation Configuration  
+needle_generation_temperature: 0.0
+needle_generation_top_p: 1.0
+needle_generation_top_k: 1
+needle_generation_max_tokens: 50
+
+### Batch and Performance
+batch_size: 1
+seed: 2024
