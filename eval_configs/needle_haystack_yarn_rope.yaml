@@ -1,0 +1,37 @@
+### Model Configuration - Test YARN RoPE Override
+model_name_or_path: /exp/austin/F1_V4
+template: llama3
+
+### RoPE Configuration Override - YARN
+rope_scaling_type: yarn
+rope_scaling_factor: 4.0
+yarn_alpha: 1.0
+yarn_beta: 32.0
+
+### Inference Configuration
+infer_dtype: bfloat16
+use_cache: true
+low_cpu_mem_usage: true
+
+### Evaluation Task
+task: needle_haystack
+task_dir: evaluation
+save_dir: results/needle_haystack_yarn_rope
+
+### Needle Haystack Parameters - Test RoPE Override
+needle_context_lengths: [8000, 16000, 32000]
+needle_depth_percents: [25, 50, 75]
+needle_text: "The YARN RoPE secret is SCALING-FACTOR-4."
+needle_question: "What is the YARN RoPE secret?"
+needle_haystack_data_source: paulgraham
+needle_save_inputs_outputs: true
+
+### Generation Configuration  
+needle_generation_temperature: 0.0
+needle_generation_top_p: 1.0
+needle_generation_top_k: 1
+needle_generation_max_tokens: 50
+
+### Performance Settings
+batch_size: 1
+seed: 1234

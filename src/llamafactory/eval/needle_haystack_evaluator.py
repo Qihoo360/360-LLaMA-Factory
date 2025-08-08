@@ -46,41 +46,61 @@ class NeedleHaystackEvaluator:
         self.template = get_template_and_fix_tokenizer(self.tokenizer, self.data_args)
         self.model = load_model(self.tokenizer, self.model_args, finetuning_args)
         
+        # Apply advanced RoPE configuration if prepared
+        if hasattr(self, 'advanced_rope_config'):
+            self._apply_advanced_rope_config()
+        
         # Load and configure generation config from model
         self._configure_generation_config()
 
     def _apply_rope_config(self) -> None:
         """Apply RoPE configuration from eval_args to model_args."""
         rope_type = self.eval_args.rope_scaling_type.lower()
+        scaling_factor = self.eval_args.rope_scaling_factor or 2.0
+        
+        print(f"Applying RoPE configuration: {rope_type} (factor: {scaling_factor})")
         
         if rope_type in ["linear", "dynamic"]:
+            # Use LlamaFactory's built-in RoPE scaling
             self.model_args.rope_scaling = rope_type
-        
-        # For advanced RoPE techniques, we need to set model configuration
-        if hasattr(self.model_args, 'rope_scaling_factor') and self.eval_args.rope_scaling_factor:
-            self.model_args.rope_scaling_factor = self.eval_args.rope_scaling_factor
-        
-        # Store advanced RoPE parameters for later use in model loading
-        if rope_type in ["yarn", "longrope", "llama3"]:
-            if not hasattr(self.model_args, 'rope_config'):
-                self.model_args.rope_config = {}
+            print(f"Set model_args.rope_scaling = {rope_type}")
             
-            self.model_args.rope_config['type'] = rope_type
+        elif rope_type in ["yarn", "longrope", "llama3"]:
+            # For advanced RoPE types, we'll override the config after model loading
+            # Set basic linear scaling first, then override with advanced config
+            self.model_args.rope_scaling = "linear"
             
-            if self.eval_args.rope_scaling_factor:
-                self.model_args.rope_config['scaling_factor'] = self.eval_args.rope_scaling_factor
+            # Store advanced RoPE config to apply after model loading
+            rope_config = {
+                "type": rope_type,
+                "factor": scaling_factor
+            }
             
             if rope_type == "yarn":
-                if self.eval_args.yarn_alpha:
-                    self.model_args.rope_config['alpha'] = self.eval_args.yarn_alpha
-                if self.eval_args.yarn_beta:
-                    self.model_args.rope_config['beta'] = self.eval_args.yarn_beta
-            
+                if hasattr(self.eval_args, 'yarn_alpha') and self.eval_args.yarn_alpha:
+                    rope_config["alpha"] = self.eval_args.yarn_alpha
+                if hasattr(self.eval_args, 'yarn_beta') and self.eval_args.yarn_beta:
+                    rope_config["beta"] = self.eval_args.yarn_beta
+                    
             elif rope_type == "longrope":
-                if self.eval_args.longrope_short_factor:
-                    self.model_args.rope_config['short_factor'] = self.eval_args.longrope_short_factor
-                if self.eval_args.longrope_long_factor:
-                    self.model_args.rope_config['long_factor'] = self.eval_args.longrope_long_factor
+                if hasattr(self.eval_args, 'longrope_short_factor') and self.eval_args.longrope_short_factor:
+                    rope_config["short_factor"] = self.eval_args.longrope_short_factor
+                if hasattr(self.eval_args, 'longrope_long_factor') and self.eval_args.longrope_long_factor:
+                    rope_config["long_factor"] = self.eval_args.longrope_long_factor
+                    
+            elif rope_type == "llama3":
+                # Llama3 RoPE has specific high/low frequency factors
+                rope_config["high_freq_factor"] = 4.0
+                rope_config["low_freq_factor"] = 1.0
+                rope_config["original_max_position_embeddings"] = 8192
+                rope_config["rope_type"] = "llama3"
+            
+            # Store for later application
+            self.advanced_rope_config = rope_config
+            print(f"Prepared advanced RoPE config: {rope_config}")
+        
+        else:
+            print(f"Unknown RoPE type: {rope_type}, using model defaults")
 
     def _configure_chat_template(self) -> None:
         """Configure chat template from tokenizer config if available."""
@@ -106,6 +126,39 @@ class NeedleHaystackEvaluator:
             print(f"⚠ Could not load chat template from tokenizer config: {e}")
             
         print(f"ℹ Using LlamaFactory template system (template: {self.data_args.template})")
+
+    def _apply_advanced_rope_config(self) -> None:
+        """Apply advanced RoPE configuration directly to the model after loading."""
+        try:
+            if not hasattr(self, 'advanced_rope_config'):
+                return
+                
+            config = self.advanced_rope_config
+            print(f"Applying advanced RoPE configuration to model: {config}")
+            
+            # Get the model's config
+            model_config = self.model.config
+            
+            # Apply the RoPE scaling configuration
+            if hasattr(model_config, 'rope_scaling'):
+                # Override the existing rope_scaling with our advanced config
+                model_config.rope_scaling = config
+                print(f"Successfully overrode model rope_scaling: {model_config.rope_scaling}")
+                
+                # Also update max_position_embeddings if we're scaling up
+                if 'factor' in config and config['factor'] > 1:
+                    original_max_pos = getattr(model_config, 'max_position_embeddings', 8192)
+                    if hasattr(self.eval_args, 'needle_context_lengths') and self.eval_args.needle_context_lengths:
+                        max_context = max(self.eval_args.needle_context_lengths)
+                        if max_context > original_max_pos:
+                            model_config.max_position_embeddings = max_context
+                            print(f"Updated max_position_embeddings from {original_max_pos} to {max_context}")
+            else:
+                print("Model does not support rope_scaling configuration")
+                
+        except Exception as e:
+            print(f"Failed to apply advanced RoPE config: {e}")
+            print("Continuing with model's default RoPE configuration")
 
     def _configure_generation_config(self) -> None:
         """Load and configure generation config from model."""
