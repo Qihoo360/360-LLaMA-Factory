@@ -81,6 +81,51 @@ class EvaluationArguments:
         default=None,
         metadata={"help": "Directory path for custom haystack text files (when data_source='directory'). Default: evaluation/needle_haystack/data/PaulGrahamEssays"},
     )
+    needle_save_inputs_outputs: bool = field(
+        default=False,
+        metadata={"help": "Save input prompts and model outputs for needle haystack evaluation"},
+    )
+    needle_generation_temperature: float = field(
+        default=0.0,
+        metadata={"help": "Temperature for generation in needle haystack (0.0 = deterministic)"},
+    )
+    needle_generation_top_p: float = field(
+        default=0.9,
+        metadata={"help": "Top-p for generation in needle haystack"},
+    )
+    needle_generation_top_k: int = field(
+        default=50,
+        metadata={"help": "Top-k for generation in needle haystack"},
+    )
+    needle_generation_max_tokens: int = field(
+        default=50,
+        metadata={"help": "Maximum new tokens for generation in needle haystack"},
+    )
+    # RoPE and context length evaluation parameters
+    rope_scaling_type: Optional[str] = field(
+        default=None,
+        metadata={"help": "RoPE scaling type: linear, dynamic, yarn, longrope, llama3"},
+    )
+    rope_scaling_factor: Optional[float] = field(
+        default=None,
+        metadata={"help": "RoPE scaling factor for extending context length"},
+    )
+    yarn_alpha: Optional[float] = field(
+        default=None,
+        metadata={"help": "YARN RoPE alpha parameter"},
+    )
+    yarn_beta: Optional[float] = field(
+        default=None,
+        metadata={"help": "YARN RoPE beta parameter"},
+    )
+    longrope_short_factor: Optional[List[float]] = field(
+        default=None,
+        metadata={"help": "LongRoPE short factor list"},
+    )
+    longrope_long_factor: Optional[List[float]] = field(
+        default=None,
+        metadata={"help": "LongRoPE long factor list"},
+    )
 
     def __post_init__(self):
         if self.save_dir is not None and os.path.exists(self.save_dir):

@@ -32,10 +32,48 @@ class NeedleHaystackEvaluator:
     def __init__(self, args: Optional[Dict[str, Any]] = None) -> None:
         """Initialize evaluator with model and tokenizer."""
         self.model_args, self.data_args, self.eval_args, finetuning_args = get_eval_args(args)
+        
+        # Apply RoPE configuration if specified in eval_args
+        if hasattr(self.eval_args, 'rope_scaling_type') and self.eval_args.rope_scaling_type:
+            self._apply_rope_config()
+        
         self.tokenizer = load_tokenizer(self.model_args)["tokenizer"]
         self.tokenizer.padding_side = "right"
         self.template = get_template_and_fix_tokenizer(self.tokenizer, self.data_args)
         self.model = load_model(self.tokenizer, self.model_args, finetuning_args)
+
+    def _apply_rope_config(self) -> None:
+        """Apply RoPE configuration from eval_args to model_args."""
+        rope_type = self.eval_args.rope_scaling_type.lower()
+        
+        if rope_type in ["linear", "dynamic"]:
+            self.model_args.rope_scaling = rope_type
+        
+        # For advanced RoPE techniques, we need to set model configuration
+        if hasattr(self.model_args, 'rope_scaling_factor') and self.eval_args.rope_scaling_factor:
+            self.model_args.rope_scaling_factor = self.eval_args.rope_scaling_factor
+        
+        # Store advanced RoPE parameters for later use in model loading
+        if rope_type in ["yarn", "longrope", "llama3"]:
+            if not hasattr(self.model_args, 'rope_config'):
+                self.model_args.rope_config = {}
+            
+            self.model_args.rope_config['type'] = rope_type
+            
+            if self.eval_args.rope_scaling_factor:
+                self.model_args.rope_config['scaling_factor'] = self.eval_args.rope_scaling_factor
+            
+            if rope_type == "yarn":
+                if self.eval_args.yarn_alpha:
+                    self.model_args.rope_config['alpha'] = self.eval_args.yarn_alpha
+                if self.eval_args.yarn_beta:
+                    self.model_args.rope_config['beta'] = self.eval_args.yarn_beta
+            
+            elif rope_type == "longrope":
+                if self.eval_args.longrope_short_factor:
+                    self.model_args.rope_config['short_factor'] = self.eval_args.longrope_short_factor
+                if self.eval_args.longrope_long_factor:
+                    self.model_args.rope_config['long_factor'] = self.eval_args.longrope_long_factor
 
     @torch.inference_mode()
     def generate_response(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> str:
@@ -46,14 +84,20 @@ class NeedleHaystackEvaluator:
             if attention_mask.dim() == 1:
                 attention_mask = attention_mask.unsqueeze(0)
             
-            outputs = self.model.generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                max_new_tokens=50,
-                do_sample=False,
-                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
-                use_cache=True,
-            )
+            # Use generation config from eval_args
+            generation_kwargs = {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "max_new_tokens": self.eval_args.needle_generation_max_tokens,
+                "temperature": self.eval_args.needle_generation_temperature,
+                "do_sample": self.eval_args.needle_generation_temperature > 0,
+                "top_p": self.eval_args.needle_generation_top_p,
+                "top_k": self.eval_args.needle_generation_top_k,
+                "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+                "use_cache": True,
+            }
+            
+            outputs = self.model.generate(**generation_kwargs)
             
             input_length = input_ids.shape[1]
             if outputs.shape[1] > input_length:
@@ -174,7 +218,7 @@ class NeedleHaystackEvaluator:
             
             scores.append(score)
             
-            results.append({
+            result_dict = {
                 "example_id": i,
                 "context_length": example['context_length_tokens'],
                 "depth_percent": example['depth_percent'],
@@ -183,7 +227,15 @@ class NeedleHaystackEvaluator:
                 "response": response,
                 "score": score,
                 "exact_match": 1.0 if score == 1.0 else 0.0
-            })
+            }
+            
+            # Save input prompt and token counts if requested
+            if self.eval_args.needle_save_inputs_outputs:
+                result_dict["input_prompt"] = f"Context: {example['context']}\n\nQuestion: {example['question']}"
+                result_dict["input_tokens"] = input_tensor.shape[1]
+                result_dict["output_tokens"] = len(self.tokenizer.encode(response)) if response else 0
+            
+            results.append(result_dict)
 
         self._save_results(results, scores)
         if self.eval_args.save_dir:
@@ -249,11 +301,34 @@ class NeedleHaystackEvaluator:
         """Save results to files."""
         os.makedirs(self.eval_args.save_dir, exist_ok=True)
         
+        # Save detailed results
         with open(os.path.join(self.eval_args.save_dir, "detailed_results.json"), "w") as f:
             json.dump(results, f, indent=2)
         
+        # Save summary
         with open(os.path.join(self.eval_args.save_dir, "summary.json"), "w") as f:
             json.dump(summary, f, indent=2)
+        
+        # Save inputs and outputs separately if requested
+        if self.eval_args.needle_save_inputs_outputs:
+            inputs_outputs = []
+            for r in results:
+                if "input_prompt" in r:
+                    inputs_outputs.append({
+                        "example_id": r["example_id"],
+                        "context_length": r["context_length"],
+                        "depth_percent": r["depth_percent"],
+                        "input_prompt": r["input_prompt"],
+                        "response": r["response"],
+                        "input_tokens": r.get("input_tokens", 0),
+                        "output_tokens": r.get("output_tokens", 0),
+                        "score": r["score"]
+                    })
+            
+            if inputs_outputs:
+                with open(os.path.join(self.eval_args.save_dir, "inputs_outputs.json"), "w") as f:
+                    json.dump(inputs_outputs, f, indent=2)
+                print(f"\nSaved input prompts and outputs to {os.path.join(self.eval_args.save_dir, 'inputs_outputs.json')}")
 
     def _generate_visualizations(self, results: List[Dict]) -> None:
         """Generate performance visualizations."""
