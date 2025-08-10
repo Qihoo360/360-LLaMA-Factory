@@ -2,47 +2,61 @@
 
 ## Overview
 
-The LongBench v2 evaluation system now supports automatic chat template detection, making it easier to evaluate models without needing to manually specify the correct template format.
+The unified LongBench v2 evaluation system supports multiple backends and automatic template detection for maximum flexibility and compatibility.
 
 ## Key Features
 
-### 1. Automatic Template Detection
+### 1. Multiple Evaluation Backends
 
-The evaluator automatically detects and uses the model's native `chat_template` from `tokenizer_config.json`. This ensures:
+- **Direct Mode** (default): Loads model directly, uses native chat templates
+- **vLLM Mode**: Uses vLLM server for high-performance inference  
+- **Official Mode**: Uses official LongBench scripts with vLLM server
+
+### 2. Automatic Template Detection
+
+Automatically detects and uses the model's native `chat_template` from `tokenizer_config.json`:
 - **Perfect compatibility** with the model's expected format
 - **No manual configuration** needed for most models
-- **Automatic handling** of custom chat formats
+- **Fallbacks** to manual templates when needed
 
-### 2. How It Works
+### 3. How Backend Selection Works
 
-When you run an evaluation:
+The evaluator automatically chooses the best backend:
 
-1. **First Priority**: Uses the model's `chat_template` if present in `tokenizer_config.json`
-2. **Fallback**: If no chat template exists, uses the template specified in your YAML config
-3. **Default**: If neither exists, uses a generic format
+1. **Check for explicit mode**: If `longbench_mode` specified in config
+2. **Check for vLLM server**: If server accessible, uses vLLM mode
+3. **Default to direct**: Loads model directly (most common)
 
-### 3. Configuration
+## Configuration
 
-#### Basic Configuration (Auto-Detection)
+### Basic Configuration (Auto-Detection)
 ```yaml
 # eval_configs/longbench_v2_basic.yaml
 model_name_or_path: your-model-path
-# template: llama3  # Optional - omit for auto-detection
+# template: llama3  # Optional - auto-detects from tokenizer_config.json
 
 task: longbench_v2
 save_dir: results/longbench_v2
 ```
 
-#### Force Specific Template
+### Force Specific Backend
 ```yaml
 model_name_or_path: your-model-path
-template: llama3  # Forces use of llama3 template, ignoring tokenizer_config.json
+longbench_mode: vllm    # Options: direct, vllm, official
 ```
 
-#### Use Empty Template (Preserves Original)
+### vLLM Server Configuration
 ```yaml
-model_name_or_path: your-model-path
-template: empty  # Uses tokenizer's chat_template without modification
+# Environment variables (optional)
+# VLLM_URL: http://127.0.0.1:8000/v1
+# VLLM_API_KEY: token-abc123
+
+longbench_mode: vllm
+```
+
+### Official Scripts Mode
+```yaml
+longbench_mode: official  # Uses third_party/LongBench/pred.py
 ```
 
 ## Usage Examples
