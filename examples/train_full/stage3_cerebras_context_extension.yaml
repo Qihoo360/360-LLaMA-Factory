@@ -1,0 +1,70 @@
+### Stage 3: Long-Context Instruction Tuning (Cerebras Method)
+# Extends context to 32K with 99% fewer training tokens
+# Based on: https://www.cerebras.ai/blog/extending-llm-context-with-99-less-training-tokens
+
+### Model Configuration
+model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct  # Replace with your Stage 2 checkpoint
+template: llama3
+
+### Method - Full SFT with DeepSpeed ZeRO-3
+stage: sft
+do_train: true
+finetuning_type: full
+deepspeed: examples/deepspeed/ds_z3_config.json
+
+### RoPE Configuration - Key for Context Extension
+rope_scaling: linear
+# Note: rope_base_freq adjustment requires model-level changes, not training args
+
+### Dataset Configuration
+# Synthetic long-context instruction tuning datasets (77.5% synthetic + 22.5% open-source)
+dataset: longalpaca_12k,longqa_gpt,longbench_chat,sharegpt_longconv,booksum_chat
+template: llama3
+cutoff_len: 32768  # 32K context target
+max_samples: 55000  # ~1.76B tokens total budget
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+### Output Configuration
+output_dir: saves/llama3-8b/stage3_cerebras_context_extension
+logging_steps: 10
+save_steps: 100
+save_only_model: true
+plot_loss: true
+overwrite_output_dir: true
+
+### Training Hyperparameters - Cerebras Stage 3 Configuration
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 64  # Effective batch size: 1.96M tokens (assuming 8 GPUs)
+learning_rate: 1.0e-6  # Peak LR from Cerebras paper
+num_train_epochs: 1.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.066  # 6.6% warmup as specified
+# min_lr handled by lr_scheduler_kwargs if needed
+weight_decay: 0.0  # Zero weight decay as specified
+bf16: true
+ddp_timeout: 180000000
+
+### Memory Optimization for H100
+flash_attn: auto
+low_cpu_mem_usage: true
+dataloader_pin_memory: false
+gradient_checkpointing: true
+
+### Evaluation Configuration
+val_size: 0.01  # Small validation set
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 100
+eval_delay: 100
+
+### Advanced Settings for Long Context Training
+max_grad_norm: 1.0
+dataloader_num_workers: 4
+remove_unused_columns: false
+seed: 42
+
+### Performance Monitoring
+report_to: tensorboard
+logging_first_step: true
+save_safetensors: true

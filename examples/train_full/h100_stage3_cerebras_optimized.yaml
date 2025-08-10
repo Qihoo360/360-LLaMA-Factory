@@ -1,0 +1,89 @@
+### H100 Optimized Stage 3: Long-Context Extension (Cerebras Method)
+# Multi-node H100 configuration for maximum throughput
+# Extends context to 32K with 99% fewer training tokens
+
+### Model Configuration
+model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct  # Replace with Stage 2 checkpoint
+template: llama3
+
+### Method - Full SFT with DeepSpeed ZeRO-3
+stage: sft
+do_train: true
+finetuning_type: full
+deepspeed: examples/deepspeed/ds_z3_config.json
+
+### RoPE Configuration - Cerebras Context Extension
+rope_scaling: linear
+# Note: rope_base_freq=8e6 adjustment requires model config changes
+
+### Dataset Configuration - Cerebras Stage 3 Mix
+dataset: longalpaca_12k,longqa_gpt,longbench_chat,sharegpt_longconv,booksum_chat
+template: llama3
+cutoff_len: 32768  # 32K target context
+max_samples: 55000  # ~1.76B tokens budget
+overwrite_cache: true
+preprocessing_num_workers: 32  # H100 optimized
+
+### Output Configuration
+output_dir: saves/llama3-8b/h100_stage3_cerebras
+logging_steps: 5
+save_steps: 50
+save_only_model: true
+plot_loss: true
+overwrite_output_dir: true
+
+### H100 Optimized Training Configuration
+per_device_train_batch_size: 2  # H100 80GB can handle larger batches
+gradient_accumulation_steps: 32  # Maintain ~2M token effective batch
+learning_rate: 1.0e-6  # Cerebras Stage 3 LR
+num_train_epochs: 1.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.066  # 6.6% warmup
+# min_lr handled by cosine scheduler automatically
+weight_decay: 0.0  # Zero weight decay per Cerebras
+bf16: true
+tf32: true  # H100 tensor core optimization
+ddp_timeout: 180000000
+
+### H100 Memory & Performance Optimizations
+flash_attn: auto  # FlashAttention-2 for H100
+low_cpu_mem_usage: true
+dataloader_pin_memory: true  # H100 has high memory bandwidth
+gradient_checkpointing: true
+torch_compile: true  # PyTorch 2.0 compilation for H100
+optim: adamw_torch_fused  # Fused optimizer for H100
+
+### Multi-GPU & Multi-Node Settings
+ddp_backend: nccl
+ddp_find_unused_parameters: false
+dataloader_num_workers: 8  # H100 optimized
+group_by_length: true
+length_column_name: length
+
+### Evaluation Configuration
+val_size: 0.005  # Minimal validation for speed
+per_device_eval_batch_size: 2
+eval_strategy: steps
+eval_steps: 50
+eval_delay: 50
+metric_for_best_model: eval_loss
+
+### Advanced Long Context Settings
+max_grad_norm: 1.0
+remove_unused_columns: false
+seed: 42
+
+### H100 Specific Optimizations
+dataloader_prefetch_factor: 4
+dataloader_persistent_workers: true
+auto_find_batch_size: false  # Fixed batch size for consistency
+
+### Monitoring & Logging
+report_to: tensorboard
+logging_first_step: true
+save_safetensors: true
+load_best_model_at_end: true
+greater_is_better: false
+
+### Memory Management
+# max_memory_MB not supported - use system memory management
