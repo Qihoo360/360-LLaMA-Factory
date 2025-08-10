@@ -1,7 +1,7 @@
 ### Model Configuration - LongBench v2 Test Evaluation
 # Using a tiny model for quick testing
 model_name_or_path: gpt2
-# template: default  # Optional - auto-detects from model's tokenizer_config.json if not specified
+template: default  # GPT-2 doesn't have a chat_template, so use default
 
 ### Inference Configuration
 infer_dtype: bfloat16
