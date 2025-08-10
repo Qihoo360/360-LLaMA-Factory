@@ -245,7 +245,7 @@ class LongBenchEvaluator:
         
         # Load dataset
         try:
-            dataset = load_dataset('THUDM/LongBench-v2', split='train')
+            dataset = load_dataset('zai-org/LongBench-v2', split='train')
             data_all = [{
                 "_id": item["_id"], "domain": item["domain"], "sub_domain": item["sub_domain"],
                 "difficulty": item["difficulty"], "length": item["length"], "question": item["question"],
