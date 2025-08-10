@@ -1,0 +1,126 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug: LlamaFactory Eval (Basic)",
+            "type": "python",
+            "request": "launch",
+            "module": "llamafactory.cli",
+            "args": [
+                "eval",
+                "${workspaceFolder}/eval_configs/longbench_v2_basic.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "0"
+            }
+        },
+        {
+            "name": "Debug: LlamaFactory Eval (Test)",
+            "type": "python",
+            "request": "launch",
+            "module": "llamafactory.cli",
+            "args": [
+                "eval",
+                "${workspaceFolder}/eval_configs/longbench_v2_test.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "0"
+            }
+        },
+        {
+            "name": "Debug: LlamaFactory Eval (Hard)",
+            "type": "python",
+            "request": "launch",
+            "module": "llamafactory.cli",
+            "args": [
+                "eval",
+                "${workspaceFolder}/eval_configs/longbench_v2_hard.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "0"
+            }
+        },
+        {
+            "name": "Debug: LlamaFactory Eval (Full)",
+            "type": "python",
+            "request": "launch",
+            "module": "llamafactory.cli",
+            "args": [
+                "eval",
+                "${workspaceFolder}/eval_configs/longbench_v2_full.yaml"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "0"
+            }
+        },
+        {
+            "name": "Debug: LlamaFactory Eval (Custom YAML)",
+            "type": "python",
+            "request": "launch",
+            "module": "llamafactory.cli",
+            "args": [
+                "eval",
+                "${input:yamlPath}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}",
+                "CUDA_VISIBLE_DEVICES": "${input:cudaDevice}",
+                "HF_HOME": "${env:HF_HOME}",
+                "TRANSFORMERS_CACHE": "${env:TRANSFORMERS_CACHE}"
+            }
+        },
+        {
+            "name": "Debug: Direct Evaluator Script",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/llamafactory/eval/longbench_evaluator.py",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src:${env:PYTHONPATH}"
+            }
+        },
+        {
+            "name": "Python: Attach to Process",
+            "type": "python",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": false
+        }
+    ],
+    "inputs": [
+        {
+            "id": "yamlPath",
+            "type": "promptString",
+            "description": "Enter the path to your YAML config file",
+            "default": "eval_configs/longbench_v2_basic.yaml"
+        },
+        {
+            "id": "cudaDevice",
+            "type": "promptString",
+            "description": "Enter CUDA device ID (e.g., 0, 1, or 0,1 for multiple)",
+            "default": "0"
+        }
+    ]
+}
