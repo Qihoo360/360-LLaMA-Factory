@@ -624,5 +624,83 @@
       "prompt": "content"
     },
     "folder": "python"
+  },
+  "cerebras_synth_long_sft32k": {
+    "file_name": "/path/to/cerebras/synth_long_sft32k/all_splits.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "cerebras_convqa_raft": {
+    "file_name": "/path/to/cerebras/synth_long_sft32k/train_convqa_raft.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "cerebras_convqa_raft_syntactic": {
+    "file_name": "/path/to/cerebras/synth_long_sft32k/train_convqa_raft_syntactic.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "cerebras_narrativeqa_32k": {
+    "file_name": "/path/to/cerebras/synth_long_sft32k/train_narrativeqa_aug_32k.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "cerebras_rag_tge_raft": {
+    "file_name": "/path/to/cerebras/synth_long_sft32k/train_rag_tge_raft.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "cerebras_rag_tge_raft_zh": {
+    "file_name": "/path/to/cerebras/synth_long_sft32k/train_rag_tge_raft_zh.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
   }
 }
