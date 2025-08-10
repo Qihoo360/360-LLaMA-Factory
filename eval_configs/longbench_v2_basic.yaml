@@ -1,6 +1,6 @@
 ### Model Configuration - LongBench v2 Basic Evaluation
 model_name_or_path: /exp/austin/F1_V4
-template: llama3
+# template: llama3  # Optional - auto-detects from model's tokenizer_config.json if not specified
 # Use model's built-in RoPE scaling (8x factor, llama3 type)
 
 ### Inference Configuration

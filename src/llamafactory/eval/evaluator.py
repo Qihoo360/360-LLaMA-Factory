@@ -166,9 +166,9 @@ def run_eval() -> None:
         from .needle_haystack_evaluator import run_needle_haystack_eval
         run_needle_haystack_eval()
     elif eval_args.task == "longbench_v2":
-        # Use direct evaluation (simpler, no server required)
-        from .longbench_v2_direct import run_longbench_v2_direct_eval
-        run_longbench_v2_direct_eval()
+        # Use auto-template detection for best compatibility
+        from .longbench_v2_auto_template import run_longbench_v2_auto_eval
+        run_longbench_v2_auto_eval()
     elif eval_args.task.startswith("longbench"):
         from .longbench_evaluator import run_longbench_eval
         run_longbench_eval()
