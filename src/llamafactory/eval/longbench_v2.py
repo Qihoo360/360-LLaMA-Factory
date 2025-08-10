@@ -53,7 +53,18 @@ class LongBenchV2Evaluator:
     
     def _determine_mode(self) -> EvalMode:
         """Determine which evaluation mode to use."""
-        # Check if user specified a mode
+        # Check if user specified a mode via environment variable (for backward compatibility)
+        import os
+        env_mode = os.getenv("LONGBENCH_MODE", "").lower()
+        if env_mode:
+            if env_mode in ["direct", "mmlu"]:
+                return EvalMode.DIRECT
+            elif env_mode == "official":
+                return EvalMode.OFFICIAL
+            elif env_mode in ["vllm", "server"]:
+                return EvalMode.VLLM
+        
+        # Check if user specified a mode via eval_args (only if available)
         if hasattr(self.eval_args, 'longbench_mode') and self.eval_args.longbench_mode:
             mode = self.eval_args.longbench_mode.lower()
             if mode in ["direct", "mmlu"]:
@@ -62,6 +73,14 @@ class LongBenchV2Evaluator:
                 return EvalMode.OFFICIAL
             elif mode in ["vllm", "server"]:
                 return EvalMode.VLLM
+        
+        # Check save_dir for mode hints (for backward compatibility)
+        if hasattr(self.eval_args, 'save_dir') and self.eval_args.save_dir:
+            save_dir = self.eval_args.save_dir.lower()
+            if 'direct' in save_dir or 'mmlu' in save_dir:
+                return EvalMode.DIRECT
+            elif 'official' in save_dir:
+                return EvalMode.OFFICIAL
         
         # Default to vLLM - check if server is running, start one if not
         return EvalMode.VLLM

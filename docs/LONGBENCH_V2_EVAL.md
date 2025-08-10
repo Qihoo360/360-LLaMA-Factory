@@ -40,9 +40,24 @@ save_dir: results/longbench_v2
 ```
 
 ### Force Specific Backend
+
+**Option 1: Environment Variable (works with any repo version)**
+```bash
+export LONGBENCH_MODE=direct  # Options: direct, vllm, official
+llamafactory-cli eval eval_configs/longbench_v2_basic.yaml
+```
+
+**Option 2: YAML Parameter (requires updated evaluation_args.py)**
 ```yaml
 model_name_or_path: your-model-path
 longbench_mode: vllm    # Options: direct, vllm, official
+```
+
+**Option 3: Save Directory Hint (for backward compatibility)**
+```yaml
+save_dir: results/longbench_v2_direct  # Contains 'direct' -> uses direct mode
+save_dir: results/longbench_v2_vllm    # Default -> uses vLLM mode
+save_dir: results/longbench_v2_official # Contains 'official' -> uses official mode
 ```
 
 ### vLLM Server Configuration
