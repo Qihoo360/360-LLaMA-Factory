@@ -245,7 +245,22 @@ class LongBenchEvaluator:
         
         # Load dataset
         try:
-            dataset = load_dataset('zai-org/LongBench-v2', split='train')
+            # Check if task_dir is specified for local dataset loading
+            if hasattr(self.eval_args, 'task_dir') and self.eval_args.task_dir:
+                import os
+                dataset_path = self.eval_args.task_dir
+                # Check if it's a local directory
+                if os.path.exists(dataset_path):
+                    print(f"Loading LongBench v2 dataset from local path: {dataset_path}")
+                    dataset = load_dataset(dataset_path, split='train')
+                else:
+                    print(f"Local path not found, trying as HuggingFace dataset ID: {dataset_path}")
+                    dataset = load_dataset(dataset_path, split='train')
+            else:
+                # Default to HuggingFace repository
+                print("Loading LongBench v2 dataset from HuggingFace: zai-org/LongBench-v2")
+                dataset = load_dataset('zai-org/LongBench-v2', split='train')
+            
             data_all = [{
                 "_id": item["_id"], "domain": item["domain"], "sub_domain": item["sub_domain"],
                 "difficulty": item["difficulty"], "length": item["length"], "question": item["question"],
