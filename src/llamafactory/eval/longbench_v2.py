@@ -1,4 +1,4 @@
-"""LongBench v2 evaluation with multiple backend support."""
+"""LongBench v2 evaluation with vLLM-first approach and MMLU-style generation."""
 
 import json
 import os
@@ -6,11 +6,14 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
+import signal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from pathlib import Path
 from enum import Enum
 
 import torch
+import numpy as np
 from datasets import load_dataset
 from tqdm import tqdm
 
@@ -24,8 +27,8 @@ if TYPE_CHECKING:
 
 class EvalMode(Enum):
     """Evaluation backend modes."""
-    DIRECT = "direct"  # Load model directly
-    VLLM = "vllm"  # Use vLLM server
+    VLLM = "vllm"  # Use vLLM server (default)
+    DIRECT = "direct"  # Load model directly, MMLU-style  
     OFFICIAL = "official"  # Use official scripts
 
 
@@ -51,19 +54,17 @@ class LongBenchV2Evaluator:
     def _determine_mode(self) -> EvalMode:
         """Determine which evaluation mode to use."""
         # Check if user specified a mode
-        if hasattr(self.eval_args, 'longbench_mode'):
+        if hasattr(self.eval_args, 'longbench_mode') and self.eval_args.longbench_mode:
             mode = self.eval_args.longbench_mode.lower()
-            if mode in ["vllm", "server"]:
-                return EvalMode.VLLM
+            if mode in ["direct", "mmlu"]:
+                return EvalMode.DIRECT
             elif mode == "official":
                 return EvalMode.OFFICIAL
+            elif mode in ["vllm", "server"]:
+                return EvalMode.VLLM
         
-        # Check if vLLM server is running
-        if self._check_vllm_server():
-            return EvalMode.VLLM
-        
-        # Default to direct mode
-        return EvalMode.DIRECT
+        # Default to vLLM - check if server is running, start one if not
+        return EvalMode.VLLM
     
     def _check_vllm_server(self) -> bool:
         """Check if vLLM server is accessible."""
@@ -76,10 +77,10 @@ class LongBenchV2Evaluator:
             return False
     
     def _init_direct(self) -> None:
-        """Initialize for direct model loading."""
+        """Initialize for direct model loading with MMLU-style evaluation."""
         # Load tokenizer
         self.tokenizer = load_tokenizer(self.model_args)["tokenizer"]
-        self.tokenizer.padding_side = "left"
+        self.tokenizer.padding_side = "right"  # Follow MMLU pattern
         
         # Check for native chat template
         if self.tokenizer.chat_template is not None:
@@ -93,14 +94,27 @@ class LongBenchV2Evaluator:
         # Load model
         self.model = load_model(self.tokenizer, self.model_args, self.finetuning_args)
         self.model.eval()
+        
+        # Set up choice tokens for MMLU-style evaluation
+        self.choice_tokens = ["A", "B", "C", "D"]
+        self.choice_inputs = [self.tokenizer.encode(ch, add_special_tokens=False)[-1] for ch in self.choice_tokens]
     
     def _init_vllm(self) -> None:
         """Initialize for vLLM server usage."""
-        from openai import OpenAI
-        
         # Setup client
         self.vllm_url = os.getenv("VLLM_URL", "http://127.0.0.1:8000/v1")
         self.vllm_api_key = os.getenv("VLLM_API_KEY", "token-abc123")
+        
+        # Check if server is running, start if needed
+        if not self._check_vllm_server():
+            print("vLLM server not running, starting one...")
+            if not self._start_vllm_server():
+                print("Failed to start vLLM server, falling back to direct mode")
+                self.mode = EvalMode.DIRECT
+                self._init_direct()
+                return
+        
+        from openai import OpenAI
         self.client = OpenAI(base_url=self.vllm_url, api_key=self.vllm_api_key)
         
         # Get model name
@@ -110,6 +124,69 @@ class LongBenchV2Evaluator:
         self.tokenizer = load_tokenizer(self.model_args)["tokenizer"]
         
         print(f"Connected to vLLM server at {self.vllm_url}")
+    
+    def _start_vllm_server(self) -> bool:
+        """Start vLLM server if not running."""
+        try:
+            # Build vLLM command
+            max_model_len = getattr(self.eval_args, 'longbench_max_context_length', 32768)
+            if max_model_len == 0:
+                max_model_len = 32768
+            
+            cmd = [
+                "vllm", "serve", 
+                self.model_args.model_name_or_path,
+                "--api-key", self.vllm_api_key,
+                "--max-model-len", str(max_model_len),
+                "--gpu-memory-utilization", "0.95",
+                "--trust-remote-code"
+            ]
+            
+            # Add tensor parallelism if multiple GPUs
+            import torch
+            if torch.cuda.device_count() > 1:
+                cmd.extend(["--tensor-parallel-size", str(torch.cuda.device_count())])
+            
+            print(f"Starting vLLM server: {' '.join(cmd)}")
+            
+            # Start server in background
+            self.vllm_process = subprocess.Popen(
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid  # Create new process group
+            )
+            
+            # Wait for server to be ready
+            for i in range(60):  # Wait up to 60 seconds
+                time.sleep(1)
+                if self._check_vllm_server():
+                    print(f"vLLM server ready after {i+1} seconds")
+                    return True
+                if self.vllm_process.poll() is not None:
+                    print("vLLM server process died")
+                    break
+            
+            print("vLLM server failed to start within 60 seconds")
+            self._cleanup_vllm_server()
+            return False
+            
+        except Exception as e:
+            print(f"Failed to start vLLM server: {e}")
+            return False
+    
+    def _cleanup_vllm_server(self) -> None:
+        """Clean up vLLM server process."""
+        if hasattr(self, 'vllm_process') and self.vllm_process:
+            try:
+                # Kill the entire process group
+                os.killpg(os.getpgid(self.vllm_process.pid), signal.SIGTERM)
+                self.vllm_process.wait(timeout=5)
+            except:
+                try:
+                    os.killpg(os.getpgid(self.vllm_process.pid), signal.SIGKILL)
+                except:
+                    pass
     
     def _init_official(self) -> None:
         """Initialize for official script usage."""
@@ -258,25 +335,23 @@ Document:
         
         return None
     
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate_direct(self, prompt: str) -> str:
-        """Generate using direct model."""
+        """Generate using direct model with MMLU-style logit evaluation."""
+        # Prepare input
         inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128000)
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         
-        gen_kwargs = {
-            "max_new_tokens": 5,
-            "temperature": 0.1,
-            "do_sample": False,
-            "pad_token_id": self.tokenizer.pad_token_id,
-            "eos_token_id": self.tokenizer.eos_token_id,
-        }
+        # Get logits for the last token
+        logits = self.model(**inputs).logits
+        last_token_logits = logits[0, -1, :]
         
-        outputs = self.model.generate(**inputs, **gen_kwargs)
+        # Get probabilities for choice tokens A, B, C, D
+        choice_probs = torch.nn.functional.softmax(last_token_logits[self.choice_inputs], dim=-1)
         
-        input_length = inputs['input_ids'].shape[1]
-        generated_tokens = outputs[0][input_length:]
-        return self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        # Return the choice with highest probability
+        best_choice_idx = torch.argmax(choice_probs).item()
+        return self.choice_tokens[best_choice_idx]
     
     def generate_vllm(self, prompt: str) -> str:
         """Generate using vLLM server."""
@@ -315,12 +390,12 @@ Document:
             
             # Generate response
             if self.mode == EvalMode.DIRECT:
-                response = self.generate_direct(prompt)
+                pred_answer = self.generate_direct(prompt)  # Direct returns answer directly
             elif self.mode == EvalMode.VLLM:
                 response = self.generate_vllm(prompt)
+                pred_answer = self.extract_answer(response)
             
-            # Extract and check answer
-            pred_answer = self.extract_answer(response)
+            # Check answer
             true_answer = item['answer']
             is_correct = pred_answer == true_answer
             
@@ -356,6 +431,16 @@ Document:
         print(f"Accuracy: {correct/total*100:.2f}%")
         print(f"Results saved to: {output_dir}")
         print("="*60)
+        
+        # Cleanup if we started a vLLM server
+        if self.mode == EvalMode.VLLM and hasattr(self, 'vllm_process'):
+            print("Cleaning up vLLM server...")
+            self._cleanup_vllm_server()
+    
+    def __del__(self):
+        """Cleanup on object destruction."""
+        if hasattr(self, 'vllm_process'):
+            self._cleanup_vllm_server()
     
     def _save_results(self, results: List[Dict], correct: int, total: int, output_dir: str) -> None:
         """Save evaluation results."""

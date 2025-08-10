@@ -171,6 +171,10 @@ class EvaluationArguments:
         default=128,
         metadata={"help": "Maximum new tokens for LongBench generation"},
     )
+    longbench_mode: Optional[str] = field(
+        default=None,
+        metadata={"help": "LongBench evaluation mode: 'direct', 'vllm', 'official' (default: auto-detect)"},
+    )
 
     def __post_init__(self):
         if self.save_dir is not None and os.path.exists(self.save_dir):
