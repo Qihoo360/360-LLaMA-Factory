@@ -350,6 +350,42 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
         default=False,
         metadata={"help": "Whether or not to compute effective tokens per second."},
     )
+    enable_profiling: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to enable PyTorch profiler for performance analysis."},
+    )
+    profiling_output_dir: Optional[str] = field(
+        default=None,
+        metadata={"help": "Directory to save profiling traces. Defaults to output_dir/traces if not specified."},
+    )
+    profiling_wait_steps: int = field(
+        default=5,
+        metadata={"help": "Number of steps to skip before starting profiler warmup."},
+    )
+    profiling_warmup_steps: int = field(
+        default=2,
+        metadata={"help": "Number of warmup steps for profiler."},
+    )
+    profiling_active_steps: int = field(
+        default=3,
+        metadata={"help": "Number of steps to actively profile."},
+    )
+    profiling_repeat: int = field(
+        default=1,
+        metadata={"help": "Number of profiling cycles to repeat."},
+    )
+    profiling_record_shapes: bool = field(
+        default=True,
+        metadata={"help": "Whether to record tensor shapes in profiler traces."},
+    )
+    profiling_profile_memory: bool = field(
+        default=True,
+        metadata={"help": "Whether to profile memory usage."},
+    )
+    profiling_with_stack: bool = field(
+        default=False,
+        metadata={"help": "Whether to record stack traces (adds overhead but provides more detail)."},
+    )
 
     def __post_init__(self):
         def split_arg(arg):
@@ -406,3 +442,14 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
 
             if self.pissa_init:
                 raise ValueError("`pissa_init` is only valid for LoRA training.")
+
+        # Validate profiling parameters
+        if self.enable_profiling:
+            if self.profiling_wait_steps < 0:
+                raise ValueError("`profiling_wait_steps` must be non-negative.")
+            if self.profiling_warmup_steps < 0:
+                raise ValueError("`profiling_warmup_steps` must be non-negative.")
+            if self.profiling_active_steps <= 0:
+                raise ValueError("`profiling_active_steps` must be positive.")
+            if self.profiling_repeat <= 0:
+                raise ValueError("`profiling_repeat` must be positive.")

@@ -1,0 +1,66 @@
+### PyTorch Profiler Integration Example
+### This configuration demonstrates how to enable profiling for LlamaFactory training runs
+
+### model
+model_name_or_path: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+
+### method
+stage: sft
+finetuning_type: full
+
+### dataset
+dataset: alpaca_gpt4_en
+template: alpaca
+
+### output
+output_dir: saves/profiling_example
+logging_steps: 1
+save_steps: 10
+
+### train
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 1
+learning_rate: 1.0e-5
+num_train_epochs: 1.0
+lr_scheduler_type: cosine
+warmup_steps: 0
+bf16: false
+ddp_timeout: 180000000
+max_steps: 20  # Keep training short for profiling
+
+### PyTorch Profiler Configuration
+### Enable profiling to generate Chrome traces for performance analysis
+enable_profiling: true
+
+### Optional: Custom output directory for traces (defaults to output_dir/traces)
+profiling_output_dir: saves/profiling_example/my_traces
+
+### Profiler schedule configuration
+### wait_steps: Number of steps to skip before profiler warmup
+profiling_wait_steps: 5
+
+### warmup_steps: Number of warmup steps for profiler 
+profiling_warmup_steps: 2
+
+### active_steps: Number of steps to actively profile (where data is collected)
+profiling_active_steps: 3
+
+### repeat: Number of profiling cycles to repeat
+profiling_repeat: 2
+
+### Advanced profiling options
+### record_shapes: Whether to record tensor shapes (adds detail but some overhead)
+profiling_record_shapes: true
+
+### profile_memory: Whether to profile memory usage
+profiling_profile_memory: true
+
+### with_stack: Whether to record stack traces (detailed but high overhead)
+profiling_with_stack: false
+
+### Usage Instructions:
+### 1. Run training: llamafactory-cli train profiling_example.yaml
+### 2. Find traces in: saves/profiling_example/my_traces/
+### 3. Open Chrome and go to: chrome://tracing
+### 4. Load the .json trace file to analyze performance
+### 5. Use 'w' and 's' to zoom, 'a' and 'd' to scroll left/right

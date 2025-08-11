@@ -23,6 +23,7 @@ from ...extras.misc import cal_effective_tokens
 from ...extras.ploting import plot_loss
 from ...hparams import ModelArguments
 from ...model import load_model, load_tokenizer
+from ..callbacks import ProfilingCallback
 from ..trainer_utils import create_modelcard_and_push, create_ref_model
 from .trainer import CustomDPOTrainer
 
@@ -40,6 +41,11 @@ def run_dpo(
     finetuning_args: "FinetuningArguments",
     callbacks: Optional[List["TrainerCallback"]] = None,
 ):
+    # Add profiling callback if enabled
+    callbacks = callbacks or []
+    if finetuning_args.enable_profiling:
+        callbacks.append(ProfilingCallback(finetuning_args))
+    
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)

@@ -348,3 +348,108 @@ class LogCallback(TrainerCallback):
                     remaining_time=self.remaining_time,
                 )
                 self.thread_pool.submit(self._write_log, args.output_dir, logs)
+
+
+class ProfilingCallback(TrainerCallback):
+    r"""
+    A callback for PyTorch profiler integration with training workflows.
+    Generates Chrome traces for performance analysis.
+    """
+
+    def __init__(self, finetuning_args) -> None:
+        self.finetuning_args = finetuning_args
+        self.profiler = None
+        self.step_count = 0
+        self.enabled = finetuning_args.enable_profiling
+        
+        if not self.enabled:
+            return
+            
+        # Setup profiling parameters
+        self.wait_steps = finetuning_args.profiling_wait_steps
+        self.warmup_steps = finetuning_args.profiling_warmup_steps  
+        self.active_steps = finetuning_args.profiling_active_steps
+        self.repeat = finetuning_args.profiling_repeat
+        self.record_shapes = finetuning_args.profiling_record_shapes
+        self.profile_memory = finetuning_args.profiling_profile_memory
+        self.with_stack = finetuning_args.profiling_with_stack
+
+    def _setup_profiler(self, output_dir: str) -> None:
+        """Initialize the PyTorch profiler with configured settings."""
+        if not self.enabled:
+            return
+            
+        # Determine output directory for traces
+        profiling_dir = self.finetuning_args.profiling_output_dir
+        if profiling_dir is None:
+            profiling_dir = os.path.join(output_dir, "traces")
+        os.makedirs(profiling_dir, exist_ok=True)
+        
+        # Configure profiler activities
+        activities = [torch.profiler.ProfilerActivity.CPU]
+        if torch.cuda.is_available():
+            activities.append(torch.profiler.ProfilerActivity.CUDA)
+        
+        # Create profiler with schedule
+        self.profiler = torch.profiler.profile(
+            activities=activities,
+            schedule=torch.profiler.schedule(
+                wait=self.wait_steps,
+                warmup=self.warmup_steps, 
+                active=self.active_steps,
+                repeat=self.repeat
+            ),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler(profiling_dir),
+            record_shapes=self.record_shapes,
+            profile_memory=self.profile_memory,
+            with_stack=self.with_stack
+        )
+        
+        logger.info_rank0(f"PyTorch profiler initialized. Traces will be saved to: {profiling_dir}")
+        logger.info_rank0(f"Profiler schedule: wait={self.wait_steps}, warmup={self.warmup_steps}, active={self.active_steps}, repeat={self.repeat}")
+
+    @override
+    def on_train_begin(self, args: "TrainingArguments", state: "TrainerState", control: "TrainerControl", **kwargs):
+        if self.enabled and args.should_save:
+            # Only setup profiler on rank 0 in distributed training to avoid conflicts
+            if torch.distributed.is_initialized():
+                if torch.distributed.get_rank() == 0:
+                    self._setup_profiler(args.output_dir)
+                    if self.profiler is not None:
+                        self.profiler.start()
+                        logger.info_rank0("Started PyTorch profiler (rank 0 only)")
+            else:
+                self._setup_profiler(args.output_dir)
+                if self.profiler is not None:
+                    self.profiler.start()
+                    logger.info_rank0("Started PyTorch profiler")
+
+    @override
+    def on_step_end(self, args: "TrainingArguments", state: "TrainerState", control: "TrainerControl", **kwargs):
+        if self.enabled and self.profiler is not None:
+            # Only step profiler on rank 0 in distributed training
+            if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
+                self.profiler.step()
+                self.step_count += 1
+
+    @override
+    def on_train_end(self, args: "TrainingArguments", state: "TrainerState", control: "TrainerControl", **kwargs):
+        if self.enabled and self.profiler is not None:
+            # Only stop and export on rank 0 in distributed training
+            if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
+                self.profiler.stop()
+                
+                # Export Chrome trace
+                profiling_dir = self.finetuning_args.profiling_output_dir
+                if profiling_dir is None:
+                    profiling_dir = os.path.join(args.output_dir, "traces")
+                
+                chrome_trace_path = os.path.join(profiling_dir, "trace.json")
+                try:
+                    self.profiler.export_chrome_trace(chrome_trace_path)
+                    logger.info_rank0(f"Chrome trace exported to: {chrome_trace_path}")
+                    logger.info_rank0("View trace in Chrome by opening chrome://tracing and loading the trace.json file")
+                except Exception as e:
+                    logger.warning_rank0(f"Failed to export Chrome trace: {e}")
+                
+                logger.info_rank0(f"Profiler completed after {self.step_count} steps")

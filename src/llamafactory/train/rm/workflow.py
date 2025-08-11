@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, List, Optional
 from ...data import PairwiseDataCollatorWithPadding, get_dataset, get_template_and_fix_tokenizer
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
-from ..callbacks import fix_valuehead_checkpoint
+from ..callbacks import fix_valuehead_checkpoint, ProfilingCallback
 from ..trainer_utils import create_modelcard_and_push
 from .metric import ComputeAccuracy
 from .trainer import PairwiseTrainer
@@ -39,6 +39,11 @@ def run_rm(
     finetuning_args: "FinetuningArguments",
     callbacks: Optional[List["TrainerCallback"]] = None,
 ):
+    # Add profiling callback if enabled
+    callbacks = callbacks or []
+    if finetuning_args.enable_profiling:
+        callbacks.append(ProfilingCallback(finetuning_args))
+    
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
     template = get_template_and_fix_tokenizer(tokenizer, data_args)
