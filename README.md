@@ -35,7 +35,7 @@ While we first released it here,
 we're looking to merge it into LLaMA-Factory and have already contacted LLaMA-Factory's author.
 Before that, this codebase could be used directly in place of the original LLaMA-Factory codebase -- 360-LLaMA-Factory's behavior is *identical* to the original one without SP.
 
-<img src="./assets/wechat-group-360-flop.JPG" width="200" style="display: block; margin: 0 auto;"/>
+<img src="./assets/wechat-group-360-flip.JPG" width="200" style="display: block; margin: 0 auto;"/>
 
 <!-- Please refer to this README and the <a href="https://github.com/hiyouga/LLaMA-Factory/blob/main/README.md"> original LLaMA-Factory README</a>. -->
 
