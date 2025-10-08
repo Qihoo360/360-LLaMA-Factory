@@ -1,5 +1,8 @@
 ![# 360-LLaMA-Factory](assets/360lf-logo-zhinao.png)
 
+**Update Oct. 8 - SP on VLMs:**
+We have supported Sequence Parallelism (SP) on Qwen-VL models! See `360-example-vl-[sft/dpo].sh` (only Qwen-2/2.5-VL and the default `zigzag-ring` for now).
+
 **Update Apr. 30:**
 We have supported Sequence Parallelism (SP) on Qwen3! (only the default `zigzag-ring` for now). See `360-example.sh`.
 
@@ -262,11 +265,11 @@ Follow [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory)'s and [ring-fla
 If you find our work helpful, please kindly cite as:
 
 ```bibtex
-@software{360-llama-factory,
-  author = {Haosheng Zou, Xiaowei Lv, Shousheng Jia and Xiangzheng Zhang},
-  title = {360-LLaMA-Factory},
-  url = {https://github.com/Qihoo360/360-LLaMA-Factory},
-  year = {2024}
+@article{zou360lf,
+  title={360-LLaMA-Factory: Plug & Play Sequence Parallelism for Long Post-Training},
+  author={Zou, Haosheng and Lv, Xiaowei and Jia, Shousheng and Li, Lin and Gong, Xiaochun and Zhang, Xiangzheng},
+  journal={arXiv preprint arXiv:2505.22296},
+  year={2025}
 }
 ```
 
