@@ -160,9 +160,10 @@ def load_model(
     if model is None and not lazy_load:
         init_kwargs["config"] = config
         init_kwargs["pretrained_model_name_or_path"] = model_args.model_name_or_path
-        # TODO: WHY?
-        #if sequence_parallel_group is not None and is_transformers_version_greater_than("4.51.0"):
-        #    init_kwargs["attn_implementation"] = "sequence_parallel_attention"
+        if (sequence_parallel_group is not None 
+            and is_transformers_version_greater_than("4.51.0")
+            and config.model_type not in ['qwen2_vl', 'qwen2_5_vl']):
+            init_kwargs["attn_implementation"] = "sequence_parallel_attention"
 
         if model_args.mixture_of_depths == "load":
             model = load_mod_pretrained_model(**init_kwargs)
