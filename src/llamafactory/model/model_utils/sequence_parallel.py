@@ -10,10 +10,6 @@ from ring_flash_attn import zigzag_ring_flash_attn_func
 from .ulysses import UlyssesAttention
 from ...extras.packages import is_transformers_version_greater_than
 
-from torch.nn import CrossEntropyLoss
-from typing import Union, Tuple, List, Optional
-import torch
-
 def new_flash_attn_forward(
     query_states,
     key_states,

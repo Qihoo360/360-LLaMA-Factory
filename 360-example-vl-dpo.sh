@@ -7,15 +7,9 @@ export DS_SKIP_CUDA_CHECK=1
 export DISABLE_VERSION_CHECK=1
 export FORCE_TORCHRUN=1
 export CUDA_LAUNCH_BLOCKING=1
-export HF_DATASETS_CACHE=/home/common-vl/cache/hf
-
-# Source environment
-source /home/.bashrc
-source /home/miniconda3/etc/profile.d/conda.sh
-conda activate 360-llama-factory-higher-tf-new
 
 # Parameters
-MODEL_PATH="/home/common-vl/ckpt/opensource/Qwen2.5-VL-7B-Instruct"
+MODEL_PATH=""
 MODEL_SIZE="7B"
 DATA_NAME="dpo-vl-demo"
 NUM_NODES=1
