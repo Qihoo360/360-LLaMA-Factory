@@ -54,7 +54,7 @@ def init_sp_group(sp_size):
     return sp_groups[sp_idx]
 
 
-def apply_sequence_parallel(model_args, full_determinism=False):
+def apply_sequence_parallel(model_args, config, full_determinism=False):
     if model_args.sequence_parallel_size == 1:
         return None  # no sequence parallelism
 
@@ -156,5 +156,23 @@ def apply_sequence_parallel(model_args, full_determinism=False):
             "If the code failed with the latest version, "
             "please file an issue to https://github.com/Qihoo360/360-llama-factory"
         )
+
+    try:
+        model_type = getattr(config, "model_type", None)
+        if model_type == "qwen2_vl":
+            import transformers.models.qwen2_vl.modeling_qwen2_vl as qwen_module
+            from .multimodal_forwards import patched_qwen2_vl_forward, patched_qwen2_5_vl_forward
+            _original_qwen_forward = qwen_module.Qwen2_VLForConditionalGeneration.forward
+            qwen_module.Qwen2_VLForConditionalGeneration.forward = patched_qwen2_vl_forward
+        elif model_type == "qwen2_5_vl":
+            import transformers.models.qwen2_5_vl.modeling_qwen2_5_vl as qwen_module
+            from .multimodal_forwards import patched_qwen2_vl_forward, patched_qwen2_5_vl_forward
+            _original_qwen_forward = qwen_module.Qwen2_5_VLForConditionalGeneration.forward
+            qwen_module.Qwen2_5_VLForConditionalGeneration.forward = patched_qwen2_5_vl_forward
+        else:
+            print("Sequence parallelism is currently not supported for other multi-modal models. Please modify the corresponding model's forward function.")
+    except:
+        raise "Failed to patch multi-modal model"
+
 
     return group_this

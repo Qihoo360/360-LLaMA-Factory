@@ -276,7 +276,7 @@ class CustomDPOTrainer(DPOTrainer):
             reference_rejected_logps = dist.nn.all_reduce(reference_rejected_logps, op=dist.ReduceOp.SUM, group=sp_group)
             policy_chosen_length = dist.nn.all_reduce(policy_chosen_length, op=dist.ReduceOp.SUM, group=sp_group)
 
-        losses, chosen_rewards, rejected_rewards = self.compute_preference_loss(
+        dpo_losses, chosen_rewards, rejected_rewards = self.compute_preference_loss(
             policy_chosen_logps,
             policy_rejected_logps,
             reference_chosen_logps,
@@ -285,8 +285,11 @@ class CustomDPOTrainer(DPOTrainer):
 
         policy_chosen_logps_avg = policy_chosen_logps / policy_chosen_length
         sft_loss = -policy_chosen_logps_avg
+
         if self.ftx_gamma > 1e-6:
-            losses += self.ftx_gamma * sft_loss
+            losses = dpo_losses + self.ftx_gamma * sft_loss
+        else:
+            losses = dpo_losses
 
         prefix = "eval_" if train_eval == "eval" else ""
         metrics[f"{prefix}rewards/chosen"] = chosen_rewards.mean().item()
@@ -297,6 +300,8 @@ class CustomDPOTrainer(DPOTrainer):
         metrics[f"{prefix}logps/rejected"] = policy_rejected_logps.mean().item()
         metrics[f"{prefix}logits/chosen"] = policy_chosen_logits.mean().item()
         metrics[f"{prefix}logits/rejected"] = policy_rejected_logits.mean().item()
+        metrics[f"{prefix}dpo/sft_loss"] = sft_loss.mean().item()
+        metrics[f"{prefix}dpo/dpo_loss"] = dpo_losses.mean().item()
         if self.loss_type == "orpo":
             metrics[f"{prefix}sft_loss"] = sft_loss.mean().item()
             metrics[f"{prefix}odds_ratio_loss"] = ((losses - sft_loss) / self.beta).mean().item()
