@@ -69,6 +69,8 @@ def create_image_position_info(seq_ids, image_token_id):
 
 # sp for Sequence Parallel
 def sp_split(examples, model_args, tokenizer):
+    is_multimodal = hasattr(tokenizer, 'image_token_id') and tokenizer.image_token_id is not None
+    
     all_image_position_maps = list()
     new_examples = dict()
 
@@ -83,14 +85,14 @@ def sp_split(examples, model_args, tokenizer):
                 chunks.extend(
                     preprocess_sp_dataset(row, model_args.sequence_parallel_size, model_args.sequence_parallel_mode)
                 )
-                if k.endswith("input_ids") and len(all_image_position_maps) < (len(v) * model_args.sequence_parallel_size):
+                if is_multimodal and k.endswith("input_ids") and len(all_image_position_maps) < (len(v) * model_args.sequence_parallel_size):
                     image_position_info = create_image_position_info(row, tokenizer.image_token_id)
                     all_image_position_maps.extend(
                         preprocess_sp_dataset(image_position_info, model_args.sequence_parallel_size, model_args.sequence_parallel_mode)
                     )
         new_examples[k] = chunks
     
-    if len(all_image_position_maps)>0:
+    if is_multimodal and len(all_image_position_maps) > 0:
         new_examples['image_position_maps'] = all_image_position_maps
         for index in range(len(new_examples['images'])):
             if all(image_position==-1 for image_position in new_examples['image_position_maps'][index]):
