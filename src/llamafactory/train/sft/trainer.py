@@ -98,7 +98,9 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
     @override
     def _get_train_sampler(self):
-        if self.model.sequence_parallel_group is not None:
+        # Use SequentialSampler for all SP modes (ZigZag-Ring/Ulysses/USP)
+        # to ensure all ranks process the same batch (different parts of the sequence)
+        if self.model.sequence_parallel_group is not None or self.model.sp_ulysses_group is not None:
             return SequentialSampler(self.train_dataset)
         else:
             return super()._get_train_sampler()
